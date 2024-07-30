@@ -37,10 +37,6 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
 [Guidelines for contributing to the project]
 
-## License
-
-[License information]
-
 ## Contact
 
 [Contact information or links to project communication channels]
