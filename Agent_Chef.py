@@ -3,6 +3,11 @@
     Agent_Chef is a personal Parquet dataset procedural construction and sythetic generation tool for
     personal dataset expansion.
     
+    # Future Tools
+    # 1. Garbage Data Collector
+    # 2. Abliteration
+    # 3. Reverse Abliteration
+    
     @Leo Borcherding
     6/30/2024
     ### MIT COPYRIGHT LISCENSE ###
@@ -20,10 +25,10 @@ from colorama import init, Fore, Style
 # Initialize colorama
 init(autoreset=True)
 
-#TODO
-# 1. Garbage Data Collector
-# 2. Abliteration
-# 3. Reverse Abliteration
+#BUG FIX TODO
+# a. FIX NAME SCHEME FOR OUTPUT PARQET SHOULD BE UNIQUE AND DERIVED FROM THE BASE JSON NAME
+# b. SHOULD BE ABLE TO PROVIDE STRUCTURE FOR CELLS, formula, explanation, python code etc. create standard templates for the structure to load or make new, 
+# c. SHOULD BE ABLE TO PROVIDE SYSTEM PROMPT FOR MODEL, either load exisiting system prompt from library or make new.
 
 class Agent_Chef:
     def __init__(self, dataset_params=None, seed_file=None, mode='custom', user_json=None): 
@@ -46,6 +51,8 @@ class Agent_Chef:
         self.seed_file = seed_file
         self.mode = mode
         self.user_json = user_json
+        self.template = None  # Will store the structure template
+        self.system_prompt = None  # Will store the system prompt
         os.makedirs(self.input_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -195,26 +202,85 @@ class Agent_Chef:
             return None
         
     def save_to_parquet(self, dataset, filename='dataset.parquet'):
+        # TODO: Implement unique naming scheme derived from base JSON name
+        if self.user_json:
+            base_name = os.path.splitext(self.user_json)[0]
+            filename = f"{base_name}_dish.parquet"
         file_path = os.path.join(self.output_dir, filename)
         df = pd.DataFrame(dataset)
         df.to_parquet(file_path, engine='pyarrow')
         return file_path
 
+    def load_template(self):
+        template_file = input(Fore.YELLOW + "Enter the name of the template file (or press Enter to create a new one): ").strip()
+        if template_file:
+            with open(os.path.join(self.input_dir, template_file), 'r') as f:
+                self.template = json.load(f)
+        else:
+            self.template = self.create_template()
+
+    def create_template(self):
+        print(Fore.CYAN + "Creating a new template for data structure.")
+        template = {}
+        while True:
+            field = input(Fore.YELLOW + "Enter a field name (or press Enter to finish): ").strip()
+            if not field:
+                break
+            template[field] = input(Fore.YELLOW + f"Enter a description for {field}: ").strip()
+        filename = input(Fore.YELLOW + "Enter a name to save this template: ").strip()
+        if not filename.endswith('.json'):
+            filename += '.json'
+        with open(os.path.join(self.input_dir, filename), 'w') as f:
+            json.dump(template, f, indent=2)
+        print(Fore.GREEN + f"Template saved as {filename}")
+        return template
+    
+    def load_system_prompt(self):
+        prompt_file = input(Fore.YELLOW + "Enter the name of the system prompt file (or press Enter to create a new one): ").strip()
+        if prompt_file:
+            with open(os.path.join(self.input_dir, prompt_file), 'r') as f:
+                self.system_prompt = f.read().strip()
+        else:
+            self.system_prompt = self.create_system_prompt()
+
+    def create_system_prompt(self):
+        print(Fore.CYAN + "Creating a new system prompt.")
+        prompt = input(Fore.YELLOW + "Enter the system prompt: ").strip()
+        filename = input(Fore.YELLOW + "Enter a name to save this system prompt: ").strip()
+        if not filename.endswith('.txt'):
+            filename += '.txt'
+        with open(os.path.join(self.input_dir, filename), 'w') as f:
+            f.write(prompt)
+        print(Fore.GREEN + f"System prompt saved as {filename}")
+        return prompt
+    
     def build_user_json(self):
         print(Fore.CYAN + "Let's build a JSON file with your custom data!")
         data = []
+
+        self.template = self.manage_templates()
+
         while True:
             entry = {}
             print(Fore.YELLOW + "Enter your data (press Enter without typing to finish):")
-            formula = input("Formula: ").strip()
-            if not formula:
+            
+            for field, description in self.template.items():
+                value = input(f"{field} ({description}): ").strip()
+                if not value:
+                    print(Fore.RED + f"No value provided for {field}. Exiting data entry.")
+                    break
+                entry[field] = value
+
+            if entry:  # Only add non-empty entries
+                data.append(entry)
+            
+            if input(Fore.YELLOW + "Add another entry? (y/n): ").lower() != 'y':
                 break
-            entry['formula'] = formula
-            entry['explanation'] = input("Explanation: ").strip()
-            entry['python_code'] = input("Python code (if applicable): ").strip()
-            entry['example'] = input("Example: ").strip()
-            data.append(entry)
-        
+
+        if not data:
+            print(Fore.RED + "No data entered. JSON file creation aborted.")
+            return None
+
         filename = input(Fore.YELLOW + "Enter a name for your JSON file: ").strip()
         if not filename.endswith('.json'):
             filename += '.json'
@@ -224,8 +290,46 @@ class Agent_Chef:
         print(Fore.GREEN + f"JSON file saved as {file_path}")
         return filename
 
-    def main(self):
+    def manage_templates(self):
+        templates = {
+            "formula": {
+                "formula": "The mathematical formula",
+                "explanation": "Explanation of the formula",
+                "python_code": "Python code to implement the formula",
+                "example": "An example of using the formula"
+            },
+            "ai_concept": {
+                "concept": "Name of the AI concept",
+                "definition": "Definition of the concept",
+                "use_case": "A common use case for this concept",
+                "example": "An example of the concept in action"
+            },
+            "data_structure": {
+                "name": "Name of the data structure",
+                "description": "Description of the data structure",
+                "time_complexity": "Time complexity for common operations",
+                "python_implementation": "Basic Python implementation"
+            }
+        }
+
+        print(Fore.CYAN + "Available templates:")
+        for i, template_name in enumerate(templates.keys(), 1):
+            print(f"{i}. {template_name}")
         
+        choice = input(Fore.YELLOW + "Select a template number or type 'custom' to create your own: ").strip().lower()
+        
+        if choice == 'custom':
+            return self.create_template()
+        else:
+            try:
+                selected_template = list(templates.values())[int(choice) - 1]
+                print(Fore.GREEN + f"Selected template: {list(templates.keys())[int(choice) - 1]}")
+                return selected_template
+            except (ValueError, IndexError):
+                print(Fore.RED + "Invalid choice. Creating a custom template.")
+                return self.create_template()
+            
+    def main(self):
         print(Fore.RED + "########################################################")
         print(Fore.CYAN + "This tool helps you cook up synthetic datasets using custom user data or Hugging Face datasets.")
         print(Fore.CYAN + "You can choose between four cooking modes:")
@@ -237,41 +341,57 @@ class Agent_Chef:
 
         self.mode = input(Fore.YELLOW + "Enter cooking mode (custom/huggingface/json/build): ").strip().lower()
 
+  
         if self.mode == 'build':
             self.user_json = self.build_user_json()
+            if not self.user_json:
+                print(Fore.RED + "JSON building was aborted. Exiting.")
+                return
             self.mode = 'json'  # Switch to JSON mode after building
+        elif self.mode in ['custom', 'huggingface', 'json']:
+            if self.mode != 'custom':
+                self.seed_file = input(Fore.YELLOW + f"Enter seed file name in the ingredients directory ({self.input_dir}), if any: ").strip()
+            if self.mode == 'huggingface':
+                self.dataset_name = input(Fore.YELLOW + "Enter Hugging Face dataset name: ").strip()
+            elif self.mode == 'json':
+                self.user_json = input(Fore.YELLOW + f"Enter JSON file name in the ingredients directory ({self.input_dir}): ").strip()
         else:
-            self.seed_file = input(Fore.YELLOW + f"Enter seed file name in the ingredients directory ({self.input_dir}), if any: ").strip()
-            dataset_name = input(Fore.YELLOW + "Enter Hugging Face dataset name (if using huggingface mode): ").strip()
-            self.user_json = input(Fore.YELLOW + f"Enter JSON file name in the ingredients directory ({self.input_dir}), if using json mode: ").strip()
+            print(Fore.RED + "Invalid mode selected. Exiting.")
+            return
 
+        self.load_template()
+        self.load_system_prompt()
+        
         custom_spinner = {"interval": 80, "frames": ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]}
         spinner = Halo(text='Cooking in progress', spinner=custom_spinner)
         spinner.start()
 
-        if self.mode == 'custom':
-            print(Fore.GREEN + "Preparing a fresh synthetic dataset...")
-            dataset = self.generate_dataset()
-        elif self.mode == 'huggingface':
-            print(Fore.GREEN + f"Fetching Hugging Face dataset: {dataset_name}")
-            original_data = self.clone_huggingface_dataset(dataset_name)
-            print(Fore.GREEN + "Adding our special sauce to create a synthetic dataset...")
-            dataset = self.generate_synthetic_data(original_data)
-        elif self.mode == 'json':
-            print(Fore.GREEN + f"Transforming JSON ingredients into Parquet: {self.user_json}")
-            parquet_file = self.save_json_to_parquet()
-            if parquet_file:
+        try:
+            if self.mode == 'custom':
+                print(Fore.GREEN + "Preparing a fresh synthetic dataset...")
+                dataset = self.generate_dataset()
+            elif self.mode == 'huggingface':
+                print(Fore.GREEN + f"Fetching Hugging Face dataset: {self.dataset_name}")
+                original_data = self.clone_huggingface_dataset(self.dataset_name)
+                print(Fore.GREEN + "Adding our special sauce to create a synthetic dataset...")
+                dataset = self.generate_synthetic_data(original_data)
+            elif self.mode == 'json':
+                print(Fore.GREEN + f"Transforming JSON ingredients into Parquet: {self.user_json}")
+                parquet_file = self.save_json_to_parquet()
+                if not parquet_file:
+                    raise ValueError("Failed to process JSON ingredients.")
                 print(Fore.GREEN + f"Cooking up a synthetic dataset from the ingredients in {parquet_file}...")
                 original_data = pd.read_parquet(parquet_file)
                 dataset = self.generate_synthetic_data(original_data)
-            else:
-                spinner.stop()
-                print(Fore.RED + "Failed to process JSON ingredients. Cooking aborted.")
-                return
 
-        saved_path = self.save_to_parquet(dataset)
-        spinner.stop()
-        print(Fore.BLUE + f"A delicious dataset with {len(dataset)} entries has been served in Parquet format at: {saved_path}")
+            saved_path = self.save_to_parquet(dataset)
+            spinner.stop()
+            print(Fore.BLUE + f"A delicious dataset with {len(dataset)} entries has been served in Parquet format at: {saved_path}")
+        
+        except Exception as e:
+            spinner.stop()
+            print(Fore.RED + f"An error occurred during cooking: {str(e)}")
+            return
 
 if __name__ == "__main__":
     chef = Agent_Chef()

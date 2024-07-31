@@ -1,0 +1,47 @@
+I'll provide a dataset of question and answer pairs in a chatml user assistant chat turn style format, covering various mathematical concepts, including infinite series and products, discrete and continuous integrals, vectors, line integrals, differential equations, and complex analysis. Please note that this is not an exhaustive dataset, but rather a starting point for training a model.
+
+Dataset
+
+Infinite Series and Products
+
+Q: ∑[n=1 to ∞] (1/n^2) A: π^2/6
+Q: ∏[n=1 to ∞] (1 + 1/n) A: e
+Q: ∑[n=1 to ∞] (-1)^n/n A: -ln(2)
+Q: ∏[n=1 to ∞] (1 - 1/n^2) A: sin(π)/π
+
+Discrete and Continuous Integrals
+
+Q: ∫[0 to 1] x^2 dx A: 1/3
+Q: ∑[k=1 to n] k^2 A: n(n+1)(2n+1)/6
+Q: ∫[0 to ∞) e^(-x) dx A: 1
+Q: ∑[k=1 to ∞) (1/k) A: ∞
+
+Vectors and Line Integrals
+
+Q: ∫[C] F(x,y) dx + G(x,y) dy A: ∫[a to b] (F(x(t),y(t))x'(t) + G(x(t),y(t))y'(t)) dt
+Q: ∇f(x,y) =? A: (<∂f/∂x, ∂f/∂y>)
+Q: ∫[C] (x^2 + y^2) ds A: ∫[a to b] (x(t)^2 + y(t)^2) √(x'(t)^2 + y'(t)^2) dt
+Q: curl F(x,y) =? A: ∂F_y/∂x - ∂F_x/∂y
+
+Differential Equations
+
+Q: dy/dx = 2x A: y = x^2 + C
+Q: y'' + 4y = 0 A: y = c1 cos(2x) + c2 sin(2x)
+Q: dx/dt = 3x - 2y A: x(t) = c1 e^(3t) - (2/3) c2 e^(-2t)
+Q: d^2y/dx^2 + 2 dy/dx + y = 0 A: y = c1 e^(-x) + c2 e^(-x) x
+
+Complex Analysis
+
+Q: ∫[C] (1/z) dz A: 2πi
+Q: Res(f(z), z0) =? A: lim (z→z0) (z - z0) f(z)
+Q: ∫[C] (e^z / (z - 1)) dz A: 2πi e
+Q: f(z) = u(x,y) + iv(x,y) A: ∂u/∂x = ∂v/∂y, ∂u/∂y = -∂v/∂x
+
+Iterative Fractal Complex Formulas
+
+Q: z → z^2 + c A: Mandelbrot set
+Q: z → z^2 - c A: Julia set
+Q: z → e^z + c A: Exponential Julia set
+Q: z → sin(z) + c A: Sine Julia set
+
+Please note that this dataset is just a starting point, and you may need to add more examples and relationships to train a robust model. Additionally, the answers provided are simplified and may not be in the most general form.
