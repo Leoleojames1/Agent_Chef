@@ -1,4 +1,4 @@
-# Agent Chef (AC) v1.0
+# Agent Chef (AC) V0.1.2
 
 <img
 src="docs/agent_chef_poster.jpeg"
