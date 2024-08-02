@@ -33,18 +33,4 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
 [Basic usage instructions and examples]
 
-## Documentation
-
-[Link to full documentation]
-
-## Contributing
-
-[Guidelines for contributing to the project]
-
-## Contact
-
-[Contact information or links to project communication channels]
-
----
-
 Agent Chef: Cooking up better datasets for a smarter AI future!
