@@ -8,10 +8,14 @@ src="docs/agent_chef_poster.jpeg"
 
 ## Features
 
-- 🥕**Dataset Refinement**🥩: Clean and refine your existing datasets
-- 🥣**Synthetic Data Generation**🥣: Create procedural and synthetic datasets
-- 🔪**Data Poisoning Elimination**🔪: Identify and remove low-quality or malicious data
-- 🍛**Specialized Dataset Construction**🍛: Generate datasets for specific use cases, including:
+- 🥕**Dataset Refinement**🥩:
+  - Clean and refine your existing datasets
+- 🥣**Synthetic Data Generation**🥣:
+  - Create procedural and synthetic datasets
+- 🔪**Data Poisoning Elimination**🔪:
+  - Identify and remove low-quality or malicious data
+- 🍛**Specialized Dataset Construction**🍛:
+  Generate datasets for specific use cases, including:
   - Function-calling
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
