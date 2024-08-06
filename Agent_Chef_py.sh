@@ -7,16 +7,14 @@ ollama serve &
 sleep 1
 
 # Activate Conda environment
-source $HOME/miniconda3/bin/activate $HOME/miniconda3/envs/raglocal
-
-# Set environment variables
+source ~/miniconda3/bin/activate raglocal
 export OLLAMA_NUM_PARALLEL=2
 export OLLAMA_MAX_LOADED_MODELS=2
 export OLLAMA_FLASH_ATTENTION=1
-# export PYTHONPATH=$PYTHONPATH:/path/to/your/python-p2p-network
 
-# Set PostgreSQL password
-export PGPASSWORD=admin
+# Run Flask app
+python app.py &
 
-# Run Python script
-python Agent_Chef.py
+# Run React development server (assuming it's in a directory named 'react-app')
+cd react-app
+npm start &
