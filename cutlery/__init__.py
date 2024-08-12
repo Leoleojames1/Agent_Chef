@@ -4,4 +4,5 @@ from .Template_Manager_Class import Template_Manager_Class
 from .Prompt_Manager_Class import Prompt_Manager_Class
 from .Ollama_Interface_Class import Ollama_Interface_Class
 from .File_Handler_Class import File_Handler_Class
-from .User_Interface_Class import User_Interface_Class
+from .ArxivPaperDownloader import ArxivPaperDownloader
+from .SearchXDatasetBuilder import SearchXDatasetBuilder

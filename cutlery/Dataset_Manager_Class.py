@@ -2,75 +2,103 @@ import pandas as pd
 from tqdm import tqdm
 from datasets import load_dataset
 import json
+import numpy as np
+import glob
+import os
+import logging
 
 class Dataset_Manager_Class:
     def __init__(self, ollama_interface):
         self.ollama_interface = ollama_interface
 
-    def generate_dataset(self, params, seed_data=None):
-        dataset = []
-        if seed_data is not None:
-            dataset.extend(seed_data.to_dict(orient='records'))
-            remaining_size = params['size'] - len(dataset)
-        else:
-            remaining_size = params['size']
-
-        for _ in tqdm(range(remaining_size), desc="Generating dataset"):
-            data_point = self.generate_data_point(params['fields'])
-            dataset.append(data_point)
-        return dataset
-
-    def generate_data_point(self, fields):
-        data_point = {}
-        for field in fields:
-            prompt = f"Generate data for {field['name']}: {field['prompt']}"
-            response = self.ollama_interface.chat(messages=[
-                {'role': 'system', 'content': 'You are a data generation assistant. Respond only with the requested data point as a valid JSON object, nothing else.'},
-                {'role': 'user', 'content': prompt}
-            ])
-            data_point[field['name']] = self.parse_response(response, field['name'])
-        return data_point
-
-    def parse_response(self, response, field_name):
-        if 'tool_calls' in response['message']:
-            tool_call = response['message']['tool_calls'][0]
-            if tool_call['function']['name'] == 'generate_random_data':
-                try:
-                    return json.loads(tool_call['function']['arguments'])
-                except json.JSONDecodeError:
-                    print(f"Failed to parse JSON for {field_name}. Using raw response.")
-                    return tool_call['function']['arguments']
-        else:
-            try:
-                return json.loads(response['message']['content'].strip())
-            except json.JSONDecodeError:
-                print(f"Failed to parse JSON for {field_name}. Using raw response.")
-                return response['message']['content'].strip()
-
-    def generate_synthetic_data(self, original_data):
-        synthetic_data = []
-        for _, row in tqdm(original_data.iterrows(), desc="Generating synthetic data"):
-            for _ in range(10):  # Generate 10 duplicates for each data point
-                synthetic_row = {}
-                for column in original_data.columns:
-                    prompt = f"Generate a similar but different {column} based on: {row[column]}. Maintain the same meaning but use different phrasing."
-                    response = self.ollama_interface.chat(messages=[
-                        {'role': 'system', 'content': 'You are a data generation assistant. Respond only with the requested data point, nothing else.'},
-                        {'role': 'user', 'content': prompt}
-                    ])
-                    synthetic_row[column] = response['message']['content'].strip()
-                synthetic_data.append(synthetic_row)
-        return synthetic_data
-
-    def clone_huggingface_dataset(self, dataset_name):
-        dataset = load_dataset(dataset_name)
-        return dataset['train'].to_pandas()
-
-    def convert_json_to_parquet(self, json_file_path, parquet_file_path):
+    def generate_synthetic_data(self, seed_parquet, num_samples=100, system_prompt=None, template=None):
         try:
-            df = pd.read_json(json_file_path)
-            df.to_parquet(parquet_file_path, engine='pyarrow')
-            return parquet_file_path
+            logging.info(f"Generating synthetic data with seed_parquet: {seed_parquet}, template: {template}")
+            seed_data = pd.read_parquet(seed_parquet)
+            logging.info(f"Successfully read seed parquet. Shape: {seed_data.shape}")
+            
+            if system_prompt is None:
+                system_prompt = "You are a data generation assistant. Respond only with the requested data point, nothing else."
+            
+            if template is None or template == '':
+                template = seed_data.columns.tolist()
+            elif isinstance(template, str):
+                template = [col.strip() for col in template.split(',')]
+            
+            logging.info(f"Using template: {template}")
+            
+            synthetic_data = []
+            for _ in tqdm(range(num_samples), desc="Generating synthetic data"):
+                synthetic_row = {}
+                for column in template:
+                    if column in seed_data.columns:
+                        example = seed_data[column].sample().iloc[0]
+                        prompt = f"Generate a similar but different {column} based on this example: {example}. Maintain the same structure and meaning but use different phrasing."
+                    else:
+                        prompt = f"Generate a plausible value for the column: {column}"
+                    
+                    try:
+                        response = self.ollama_interface.chat(messages=[
+                            {'role': 'system', 'content': system_prompt},
+                            {'role': 'user', 'content': prompt}
+                        ])
+                        synthetic_row[column] = response['message']['content'].strip()
+                    except Exception as e:
+                        logging.error(f"Error generating synthetic data for column {column}: {str(e)}")
+                        synthetic_row[column] = f"Error: {str(e)}"
+                synthetic_data.append(synthetic_row)
+            
+            result_df = pd.DataFrame(synthetic_data)
+            logging.info(f"Successfully generated synthetic data. Shape: {result_df.shape}")
+            return result_df
         except Exception as e:
-            print(f"Error converting JSON to Parquet: {str(e)}")
-            return None
+            logging.exception(f"Error in generate_synthetic_data: {str(e)}")
+            return pd.DataFrame()
+
+    def combine_parquets(self, seed_parquet_dir):
+        try:
+            # Get all parquet files in the directory
+            parquet_files = glob.glob(os.path.join(seed_parquet_dir, '*.parquet'))
+            logging.info(f"Found {len(parquet_files)} parquet files in {seed_parquet_dir}")
+            
+            # Read and combine all parquet files
+            dfs = []
+            for file in parquet_files:
+                try:
+                    df = pd.read_parquet(file)
+                    dfs.append(df)
+                    logging.info(f"Successfully read {file}. Shape: {df.shape}")
+                except Exception as e:
+                    logging.error(f"Error reading {file}: {str(e)}")
+            
+            if not dfs:
+                raise ValueError("No valid parquet files found")
+            
+            combined_df = pd.concat(dfs, ignore_index=True)
+            logging.info(f"Successfully combined parquet files. Final shape: {combined_df.shape}")
+            
+            return combined_df
+        except Exception as e:
+            logging.exception(f"Error in combine_parquets: {str(e)}")
+            return pd.DataFrame()
+
+    def augment_data(self, seed_parquet):
+        try:
+            logging.info(f"Attempting to augment data from: {seed_parquet}")
+            # Load the seed data
+            seed_data = pd.read_parquet(seed_parquet)
+            logging.info(f"Successfully read seed parquet. Shape: {seed_data.shape}")
+            
+            # Implement data augmentation logic
+            augmented_data = seed_data.copy()
+            for column in seed_data.columns:
+                if seed_data[column].dtype == 'object':  # Text data
+                    augmented_data[column] = augmented_data[column].apply(lambda x: f"{x} (augmented)")
+                elif seed_data[column].dtype in ['int64', 'float64']:  # Numeric data
+                    augmented_data[column] = augmented_data[column] * (1 + np.random.uniform(-0.1, 0.1, len(seed_data)))
+            
+            logging.info(f"Successfully augmented data. Shape: {augmented_data.shape}")
+            return augmented_data
+        except Exception as e:
+            logging.exception(f"Error in augment_data: {str(e)}")
+            return pd.DataFrame()
