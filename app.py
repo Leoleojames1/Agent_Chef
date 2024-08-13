@@ -158,17 +158,23 @@ def generate_synthetic():
 def convert_to_json_parquet():
     data = request.json
     content = data['content']
-    template = data.get('template', [])
+    template_name = data.get('template')
     filename = data['filename']
     
     logging.info(f"Converting file: {filename}")
-    logging.info(f"Template: {template}")
+    logging.info(f"Template name: {template_name}")
     
     try:
-        # If template is empty or None, create a default template with a single field
-        if not template:
+        # Get the template fields from the template manager
+        if template_name:
+            template = template_manager.get_template(template_name)
+            if not template:
+                return jsonify({'error': f'Template "{template_name}" not found'}), 400
+        else:
             template = ['content']
             logging.warning("No template provided. Using default template: ['content']")
+        
+        logging.info(f"Using template: {template}")
         
         # Parse the text content based on the template
         parsed_data = []
@@ -205,6 +211,9 @@ def convert_to_json_parquet():
         df.to_parquet(parquet_file, engine='pyarrow')
         logging.info(f"Parquet file saved: {parquet_file}")
         
+        # Log the DataFrame columns for debugging
+        logging.info(f"DataFrame columns: {df.columns.tolist()}")
+        
         return jsonify({
             'json_file': os.path.basename(json_file),
             'parquet_file': os.path.basename(parquet_file)
@@ -222,22 +231,61 @@ def run_agent_chef():
     
     try:
         seed_parquet = data.get('seedParquet')
+        logging.info(f"Seed parquet from request: {seed_parquet}")
+        
         if not seed_parquet:
-            raise ValueError("Seed parquet file not specified")
+            raise ValueError("Seed parquet file not specified in the request")
+        
+        # Check if the seed parquet file exists
+        seed_parquet_path = os.path.join(chef.input_dir, seed_parquet)
+        logging.info(f"Full seed parquet path: {seed_parquet_path}")
+        
+        if not os.path.exists(seed_parquet_path):
+            raise FileNotFoundError(f"Seed parquet file not found at {seed_parquet_path}")
+        
+        template_name = data.get('template')
+        if template_name:
+            template = template_manager.get_template(template_name)
+            if not template:
+                raise ValueError(f'Template "{template_name}" not found')
+            logging.info(f"Using template: {template}")
+        else:
+            template = None
+            logging.info("No template specified, will use default")
         
         result = chef.run(
             mode=data['mode'],
-            seed_parquet=seed_parquet,
+            seed_parquet=seed_parquet_path,  # Use the full path
             synthetic_technique=data.get('syntheticTechnique'),
-            template=data['template'],
+            template=template,
             system_prompt=data['systemPrompt'],
             num_samples=int(data.get('numSamples', 100))
         )
         return jsonify(result)
+    except FileNotFoundError as e:
+        error_msg = f"Seed parquet file not found: {str(e)}"
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 404
+    except ValueError as e:
+        error_msg = f"Invalid input: {str(e)}"
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 400
     except Exception as e:
         error_msg = f"Error in run_agent_chef: {str(e)}"
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
 
+@app.route('/api/inspect_parquet/<filename>', methods=['GET'])
+def inspect_parquet(filename):
+    try:
+        file_path = os.path.join(chef.input_dir, filename)
+        df = pd.read_parquet(file_path)
+        return jsonify({
+            "columns": df.columns.tolist(),
+            "sample_data": df.head().to_dict(orient='records')
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
 if __name__ == '__main__':
     app.run(debug=True)

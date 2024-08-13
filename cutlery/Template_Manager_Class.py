@@ -15,14 +15,14 @@ class Template_Manager_Class:
         else:
             templates = {
                 "instruct": ["user", "request", "assistant", "response"],
-                "math_fusion": ["formula", "solution", "python_code", "example"],
-                "latex_math_series": ["formula", "solution"],
-                "latex_theory": ["theory", "theory_explanation"],
-                "ai_concept": ["concept", "definition", "use_case", "example"],
-                "data_structure": ["name", "description", "time_complexity", "python_implementation"],
-                "function_call": ["command", "description", "args", "actions"],
-                "python_base": ["code", "description", "args", "returns"],
-                "python_ollama": ["code", "description", "args", "actions", "chain_of_thought","prompts"],
+                "mathFusion": ["formula", "solution", "python", "example"],
+                "latexSeries": ["formula", "solution"],
+                "latexTheory": ["theory", "explanation"],
+                "aiConcept": ["concept", "definition", "useCase", "example"],
+                "dataStructure": ["name", "description", "timeComplexity", "pythonImplementation"],
+                "functionCall": ["command", "description", "args", "actions"],
+                "pythonBase": ["code", "description", "args", "returns"],
+                "pythonOllama": ["code", "description", "args", "actions", "chainOfThought","prompts"],
             }
             self.save_templates(templates)
         

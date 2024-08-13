@@ -16,6 +16,7 @@ class Dataset_Manager_Class:
             logging.info(f"Generating synthetic data with seed_parquet: {seed_parquet}, template: {template}")
             seed_data = pd.read_parquet(seed_parquet)
             logging.info(f"Successfully read seed parquet. Shape: {seed_data.shape}")
+            logging.info(f"Seed parquet columns: {seed_data.columns.tolist()}")
             
             if system_prompt is None:
                 system_prompt = "You are a data generation assistant. Respond only with the requested data point, nothing else."
@@ -23,7 +24,7 @@ class Dataset_Manager_Class:
             if template is None or template == '':
                 template = seed_data.columns.tolist()
             elif isinstance(template, str):
-                template = [col.strip() for col in template.split(',')]
+                template = [template]  # If it's a single string, make it a list
             
             logging.info(f"Using template: {template}")
             
@@ -50,6 +51,7 @@ class Dataset_Manager_Class:
             
             result_df = pd.DataFrame(synthetic_data)
             logging.info(f"Successfully generated synthetic data. Shape: {result_df.shape}")
+            logging.info(f"Generated DataFrame columns: {result_df.columns.tolist()}")
             return result_df
         except Exception as e:
             logging.exception(f"Error in generate_synthetic_data: {str(e)}")
