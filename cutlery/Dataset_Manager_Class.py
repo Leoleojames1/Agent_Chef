@@ -8,8 +8,9 @@ import os
 import logging
 
 class Dataset_Manager_Class:
-    def __init__(self, ollama_interface):
+    def __init__(self, ollama_interface, template_manager):
         self.ollama_interface = ollama_interface
+        self.template_manager = template_manager
 
     def generate_synthetic_data(self, seed_parquet, num_samples=100, system_prompt=None, template=None):
         try:
@@ -24,7 +25,7 @@ class Dataset_Manager_Class:
             if template is None or template == '':
                 template = seed_data.columns.tolist()
             elif isinstance(template, str):
-                template = [template]  # If it's a single string, make it a list
+                template = self.template_manager.get_template(template)
             
             logging.info(f"Using template: {template}")
             
@@ -43,7 +44,13 @@ class Dataset_Manager_Class:
                             {'role': 'system', 'content': system_prompt},
                             {'role': 'user', 'content': prompt}
                         ])
-                        synthetic_row[column] = response['message']['content'].strip()
+                        
+                        function_name, arguments = self.ollama_interface.parse_tool_response(response)
+                        
+                        if function_name == 'generate_random_data':
+                            synthetic_row[column] = arguments['prompt']
+                        else:
+                            synthetic_row[column] = response['message']['content'].strip()
                     except Exception as e:
                         logging.error(f"Error generating synthetic data for column {column}: {str(e)}")
                         synthetic_row[column] = f"Error: {str(e)}"
@@ -104,3 +111,33 @@ class Dataset_Manager_Class:
         except Exception as e:
             logging.exception(f"Error in augment_data: {str(e)}")
             return pd.DataFrame()
+
+    def parse_text_to_parquet(self, text_content, template_name):
+        template = self.template_manager.get_template(template_name)
+        if not template:
+            raise ValueError(f"Template '{template_name}' not found")
+
+        # Use Ollama to parse the text content based on the template
+        response = self.ollama_interface.chat(messages=[
+            {'role': 'system', 'content': f"You are a data parsing assistant. Parse the given text into the following columns: {', '.join(template)}. Return the result as a JSON object where keys are column names and values are lists of parsed data."},
+            {'role': 'user', 'content': text_content}
+        ])
+
+        function_name, arguments = self.ollama_interface.parse_tool_response(response)
+        
+        if function_name == 'generate_random_data':
+            parsed_data = json.loads(arguments['prompt'])
+        else:
+            try:
+                parsed_data = json.loads(response['message']['content'])
+            except json.JSONDecodeError:
+                raise ValueError("Failed to parse Ollama response as JSON")
+
+        # Ensure all template columns are present in the parsed data
+        for column in template:
+            if column not in parsed_data:
+                parsed_data[column] = []
+
+        # Create DataFrame from parsed data
+        df = pd.DataFrame(parsed_data)
+        return df

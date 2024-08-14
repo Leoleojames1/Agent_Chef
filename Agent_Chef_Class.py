@@ -33,6 +33,14 @@ class Agent_Chef_Class:
         self.dataset_params = None
         logging.basicConfig(level=logging.INFO)
 
+        # Initialize dataset_manager with a default Ollama_Interface_Class
+        self.ollama_interface = Ollama_Interface_Class(None)
+        self.dataset_manager = Dataset_Manager_Class(self.ollama_interface, self.template_manager)
+
+        # Ensure all directories exist
+        for dir_path in [self.input_dir, self.output_dir, self.latex_library_dir, self.construction_zone_dir]:
+            os.makedirs(dir_path, exist_ok=True)
+            
         # Ensure all directories exist
         for dir_path in [self.input_dir, self.output_dir, self.latex_library_dir, self.construction_zone_dir]:
             os.makedirs(dir_path, exist_ok=True)
@@ -40,7 +48,7 @@ class Agent_Chef_Class:
     def initialize(self, model):
         self.model = model
         self.ollama_interface = Ollama_Interface_Class(self.model)
-        self.dataset_manager = Dataset_Manager_Class(self.ollama_interface)
+        self.dataset_manager = Dataset_Manager_Class(self.ollama_interface, self.template_manager)
 
     def run(self, mode, seed_parquet, synthetic_technique=None, template=None, system_prompt=None, num_samples=100):
         self.mode = mode
@@ -88,7 +96,7 @@ class Agent_Chef_Class:
                     combined_dataset = self.dataset_manager.combine_parquets(self.input_dir)
                     if combined_dataset.empty:
                         return {'error': "Failed to combine parquet files. Check the logs for details."}
-                    output_file = os.path.join(self.output_dir, f'combined_{timestamp}.parquet')
+                    output_file = os.path.join(self.output_dir, f'{base_filename}_combined_{timestamp}.parquet')
                     self.file_handler.save_to_parquet(combined_dataset, output_file)
                     return {'message': "Parquet files combined successfully", 'file': os.path.basename(output_file)}
                 elif self.synthetic_technique == 'augment':

@@ -6,15 +6,17 @@ import pandas as pd
 import logging
 from Agent_Chef_Class import Agent_Chef_Class
 from cutlery.Template_Manager_Class import Template_Manager_Class
+from cutlery.Ollama_Interface_Class import Ollama_Interface_Class
 from datetime import datetime
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Agent_Chef and TemplateManager
+# Initialize Agent_Chef, TemplateManager, and OllamaInterface
 chef = Agent_Chef_Class()
 template_manager = Template_Manager_Class(chef.input_dir)
+ollama_interface = Ollama_Interface_Class(None)  # Initialize with no specific model
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
@@ -41,9 +43,15 @@ def get_file_content(type, filename):
         return jsonify({"error": "Invalid file type"}), 400
     
     try:
-        with open(file_path, 'r') as f:
-            content = f.read()
-        return jsonify({"content": content})
+        if filename.endswith('.parquet'):
+            df = pd.read_parquet(file_path)
+            content = df.head(100).to_dict('records')  # Convert first 100 rows to list of dictionaries
+            columns = df.columns.tolist()
+            return jsonify({"content": content, "columns": columns, "total_rows": len(df)})
+        else:
+            with open(file_path, 'r') as f:
+                content = f.read()
+            return jsonify({"content": content})
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
     except Exception as e:
@@ -56,8 +64,6 @@ def save_file():
     content = data.get('content')
     file_type = data.get('type')
     
-    logging.info(f"Received save request: filename={filename}, type={file_type}")
-    
     try:
         if not filename or content is None or not file_type:
             raise ValueError("Missing required data")
@@ -69,12 +75,9 @@ def save_file():
         else:
             raise ValueError(f"Invalid file type: {file_type}")
         
-        logging.info(f"Saving file to: {file_path}")
-        
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        logging.info("File saved successfully")
         return jsonify({"success": True, "message": "File saved successfully", "file_path": file_path})
     except Exception as e:
         logging.exception(f"Error saving file: {str(e)}")
@@ -130,21 +133,22 @@ def save_template():
         return jsonify({'success': True, 'message': 'Template saved successfully', 'template': template})
     except Exception as e:
         return jsonify({'error': f'Failed to save template: {str(e)}'}), 500
-                        
+
 @app.route('/api/generate_synthetic', methods=['POST'])
 def generate_synthetic():
     data = request.json
     seed_parquet = data['seed_parquet']
-    mode = data['mode']
-    ollama_model = data['ollamaModel']
+    num_samples = data['num_samples']
+    ollama_model = data['ollama_model']
+    system_prompt = data['system_prompt']
     
     try:
         chef.initialize(ollama_model)
         result = chef.run(
-            mode=mode,
-            user_json=seed_parquet,
-            dataset_name='synthetic_dataset',
-            dataset_params={'size': 100}  # You can adjust this or make it configurable
+            mode='custom',
+            seed_parquet=seed_parquet,
+            num_samples=num_samples,
+            system_prompt=system_prompt
         )
         
         if 'error' in result:
@@ -161,42 +165,12 @@ def convert_to_json_parquet():
     template_name = data.get('template')
     filename = data['filename']
     
-    logging.info(f"Converting file: {filename}")
-    logging.info(f"Template name: {template_name}")
-    
     try:
-        # Get the template fields from the template manager
-        if template_name:
-            template = template_manager.get_template(template_name)
-            if not template:
-                return jsonify({'error': f'Template "{template_name}" not found'}), 400
-        else:
-            template = ['content']
-            logging.warning("No template provided. Using default template: ['content']")
-        
-        logging.info(f"Using template: {template}")
-        
-        # Parse the text content based on the template
-        parsed_data = []
-        lines = content.split('\n')
-        
-        if len(template) == 1:
-            # If there's only one field in the template, treat each line as a separate entry
-            for line in lines:
-                if line.strip():
-                    parsed_data.append({template[0]: line.strip()})
-        else:
-            # Multiple fields in the template
-            for i in range(0, len(lines), len(template)):
-                entry = {}
-                for j, field in enumerate(template):
-                    if i + j < len(lines):
-                        entry[field] = lines[i + j].strip()
-                if entry:
-                    parsed_data.append(entry)
-        
-        # Create DataFrame
-        df = pd.DataFrame(parsed_data)
+        if not template_name:
+            return jsonify({'error': 'Template name is required'}), 400
+
+        # Use the Dataset_Manager to parse the text content
+        df = chef.dataset_manager.parse_text_to_parquet(content, template_name)
         
         # Generate base filename without extension
         base_filename = os.path.splitext(filename)[0]
@@ -204,15 +178,10 @@ def convert_to_json_parquet():
         # Save as JSON
         json_file = os.path.join(chef.input_dir, f"{base_filename}.json")
         df.to_json(json_file, orient='records', indent=2)
-        logging.info(f"JSON file saved: {json_file}")
         
         # Save as Parquet
         parquet_file = os.path.join(chef.input_dir, f"{base_filename}.parquet")
         df.to_parquet(parquet_file, engine='pyarrow')
-        logging.info(f"Parquet file saved: {parquet_file}")
-        
-        # Log the DataFrame columns for debugging
-        logging.info(f"DataFrame columns: {df.columns.tolist()}")
         
         return jsonify({
             'json_file': os.path.basename(json_file),
@@ -225,67 +194,109 @@ def convert_to_json_parquet():
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json
-    chef.initialize(data['ollamaModel'])
+    ollama_model = data.get('ollamaModel')
     
     logging.info(f"Received run request with data: {data}")
     
     try:
+        if not ollama_model:
+            raise ValueError("Ollama model not specified")
+        
+        chef.initialize(ollama_model)
+        
         seed_parquet = data.get('seedParquet')
-        logging.info(f"Seed parquet from request: {seed_parquet}")
-        
         if not seed_parquet:
-            raise ValueError("Seed parquet file not specified in the request")
-        
-        # Check if the seed parquet file exists
-        seed_parquet_path = os.path.join(chef.input_dir, seed_parquet)
-        logging.info(f"Full seed parquet path: {seed_parquet_path}")
-        
-        if not os.path.exists(seed_parquet_path):
-            raise FileNotFoundError(f"Seed parquet file not found at {seed_parquet_path}")
-        
-        template_name = data.get('template')
-        if template_name:
-            template = template_manager.get_template(template_name)
-            if not template:
-                raise ValueError(f'Template "{template_name}" not found')
-            logging.info(f"Using template: {template}")
-        else:
-            template = None
-            logging.info("No template specified, will use default")
+            raise ValueError("Seed parquet file not specified")
         
         result = chef.run(
             mode=data['mode'],
-            seed_parquet=seed_parquet_path,  # Use the full path
+            seed_parquet=seed_parquet,
             synthetic_technique=data.get('syntheticTechnique'),
-            template=template,
-            system_prompt=data['systemPrompt'],
+            template=data.get('template'),
+            system_prompt=data.get('systemPrompt'),
             num_samples=int(data.get('numSamples', 100))
         )
-        return jsonify(result)
-    except FileNotFoundError as e:
-        error_msg = f"Seed parquet file not found: {str(e)}"
-        logging.exception(error_msg)
-        return jsonify({"error": error_msg}), 404
-    except ValueError as e:
-        error_msg = f"Invalid input: {str(e)}"
-        logging.exception(error_msg)
-        return jsonify({"error": error_msg}), 400
+        
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 400
+        else:
+            return jsonify({
+                'message': result['message'],
+                'filename': result['file']
+            })
     except Exception as e:
         error_msg = f"Error in run_agent_chef: {str(e)}"
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
-
-@app.route('/api/inspect_parquet/<filename>', methods=['GET'])
-def inspect_parquet(filename):
+    
+@app.route('/api/ollama-models', methods=['GET'])
+def get_ollama_models():
     try:
-        file_path = os.path.join(chef.input_dir, filename)
-        df = pd.read_parquet(file_path)
+        models = ollama_interface.list_models()
+        return jsonify({"models": models})
+    except Exception as e:
+        logging.exception("Error fetching Ollama models")
+        return jsonify({"error": str(e), "message": "Error fetching Ollama models"}), 500
+    
+@app.route('/api/seeds', methods=['GET'])
+def get_seeds():
+    try:
+        seed_files = [f for f in os.listdir(chef.input_dir) if f.endswith(('.json', '.parquet'))]
+        seed_files.sort(key=lambda x: os.path.getmtime(os.path.join(chef.input_dir, x)), reverse=True)
+        
+        if not seed_files:
+            return jsonify({"seeds": [], "message": "No seed files found"}), 200
+        
+        most_recent_seed = seed_files[0] if seed_files else None
+        
         return jsonify({
-            "columns": df.columns.tolist(),
-            "sample_data": df.head().to_dict(orient='records')
+            "seeds": seed_files,
+            "most_recent_seed": most_recent_seed,
+            "message": "Seeds fetched successfully"
+        }), 200
+    except Exception as e:
+        logging.exception("Error fetching seeds")
+        return jsonify({"error": str(e), "message": "Error fetching seeds"}), 500
+    
+@app.route('/api/combine_files', methods=['POST'])
+def combine_files():
+    data = request.json
+    files = data.get('files', [])
+    
+    if not files:
+        return jsonify({'error': 'No files specified for combination'}), 400
+    
+    try:
+        combined_data = []
+        for file in files:
+            file_path = os.path.join(chef.input_dir, file)
+            if file.endswith('.parquet'):
+                df = pd.read_parquet(file_path)
+                combined_data.append(df)
+            elif file.endswith('.json'):
+                with open(file_path, 'r') as f:
+                    json_data = json.load(f)
+                df = pd.DataFrame(json_data)
+                combined_data.append(df)
+            else:  # Assume it's a text file
+                with open(file_path, 'r') as f:
+                    text_data = f.read()
+                df = pd.DataFrame({'content': [text_data]})
+                combined_data.append(df)
+        
+        combined_df = pd.concat(combined_data, ignore_index=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_file = os.path.join(chef.input_dir, f'combined_seed_{timestamp}.parquet')
+        combined_df.to_parquet(output_file, engine='pyarrow')
+        
+        return jsonify({
+            'message': 'Files combined successfully',
+            'parquet_file': os.path.basename(output_file)
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logging.exception(f"Error combining files: {str(e)}")
+        return jsonify({'error': str(e)}), 500
     
 if __name__ == '__main__':
     app.run(debug=True)

@@ -5,50 +5,53 @@
     "assistant",
     "response"
   ],
-  "math_fusion": [
-    "formula",
-    "solution",
-    "python_code",
-    "example"
+  "functions": [
+    "function"
   ],
-  "latex_math_series": [
-    "formula",
-    "latex_formula"
-  ],
-  "latex_theory": [
-    "theory",
-    "theory_explanation"
-  ],
-  "ai_concept": [
-    "concept",
-    "definition",
-    "use_case",
-    "example"
-  ],
-  "data_structure": [
-    "name",
-    "description",
-    "time_complexity",
-    "python_implementation"
-  ],
-  "function_call": [
+  "functionCall": [
     "command",
     "description",
     "args",
     "actions"
   ],
-  "python_base": [
+  "mathFusion": [
+    "formula",
+    "solution",
+    "python",
+    "example"
+  ],
+  "latexSeries": [
+    "formula",
+    "solution"
+  ],
+  "latexTheory": [
+    "theory",
+    "explanation"
+  ],
+  "aiConcept": [
+    "concept",
+    "definition",
+    "useCase",
+    "example"
+  ],
+  "dataStructure": [
+    "name",
+    "description",
+    "timeComplexity",
+    "pythonImplementation"
+  ],
+  "pythonBase": [
     "code",
     "description",
     "args",
     "returns"
   ],
-  "python_ollama": [
+  "pythonOllama": [
     "code",
     "description",
     "args",
     "actions",
-    "chain_of_thought",
+    "chainOfThought",
     "prompts"
   ]
 }

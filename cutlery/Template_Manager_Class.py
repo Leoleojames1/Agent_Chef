@@ -15,12 +15,13 @@ class Template_Manager_Class:
         else:
             templates = {
                 "instruct": ["user", "request", "assistant", "response"],
+                "functions": ["function"],
+                "functionCall": ["command", "description", "args", "actions"],
                 "mathFusion": ["formula", "solution", "python", "example"],
                 "latexSeries": ["formula", "solution"],
                 "latexTheory": ["theory", "explanation"],
                 "aiConcept": ["concept", "definition", "useCase", "example"],
                 "dataStructure": ["name", "description", "timeComplexity", "pythonImplementation"],
-                "functionCall": ["command", "description", "args", "actions"],
                 "pythonBase": ["code", "description", "args", "returns"],
                 "pythonOllama": ["code", "description", "args", "actions", "chainOfThought","prompts"],
             }
