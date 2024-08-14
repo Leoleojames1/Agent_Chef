@@ -20,7 +20,7 @@ src="docs/agent_chef_poster.jpeg"
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
-  - 
+    
 <img
 src="docs/icons/agent_chef_ui_1.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
