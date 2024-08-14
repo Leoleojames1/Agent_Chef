@@ -1,4 +1,4 @@
-# 🍲Agent Chef (AC) V0.1.2🥘
+# 🍲Agent Chef (AC) V0.0.7🥘
 
 <img
 src="docs/agent_chef_poster.jpeg"
