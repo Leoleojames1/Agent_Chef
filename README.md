@@ -20,7 +20,11 @@ src="docs/agent_chef_poster.jpeg"
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
-
+  - 
+<img
+src="docs/icons/agent_chef_gui_1.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+  
 ## Why Agent Chef?
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
