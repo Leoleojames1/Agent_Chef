@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// import './App.css';
+import './App.css';
 import axios from 'axios';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -19,6 +19,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
+import Checkbox from '@mui/material/Checkbox';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/mode-text';
@@ -176,6 +177,8 @@ function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [editorMode, setEditorMode] = useState('text');
   const [builtSeed, setBuiltSeed] = useState(null);
+  const [allFiles, setAllFiles] = useState([]);
+  const [selectedFileType, setSelectedFileType] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -199,7 +202,6 @@ function App() {
     fetchOllamaModels();
   }, []);
 
-
   if (error) {
     return (
       <ThemeProvider theme={theme}>
@@ -219,6 +221,16 @@ function App() {
       console.error('Error fetching Ollama models:', error);
       setError('Error fetching Ollama models');
     }
+  };
+
+  const handleFileSelection = (file) => {
+    setSelectedFiles(prevSelected => {
+      if (prevSelected.some(f => f.name === file.name && f.type === file.type)) {
+        return prevSelected.filter(f => f.name !== file.name || f.type !== file.type);
+      } else {
+        return [...prevSelected, file];
+      }
+    });
   };
 
   const saveTxtFile = async () => {
@@ -305,9 +317,7 @@ function App() {
   const buildSeed = async () => {
     try {
       const response = await axios.post('http://localhost:5000/api/convert_to_json_parquet', {
-        content: editorContent,
-        template: selectedTemplate,
-        filename: filename || 'new_seed.txt',
+        filename,
       });
       setBuiltSeed(response.data.parquet_file);
       setOutput(`Seed parquet created: ${response.data.parquet_file}`);
@@ -317,14 +327,25 @@ function App() {
     }
   };
 
-  const combineFiles = async () => {
+  const combineSelectedFiles = async () => {
+    if (selectedFiles.length < 2) {
+      setError("Please select at least two files to combine.");
+      return;
+    }
+    
+    const fileTypes = new Set(selectedFiles.map(file => file.name.split('.').pop()));
+    if (fileTypes.size > 1) {
+      setError("Can only combine files of the same type.");
+      return;
+    }
+
     try {
       const response = await axios.post('http://localhost:5000/api/combine_files', {
         files: selectedFiles,
       });
-      setBuiltSeed(response.data.parquet_file);
-      setOutput(`Combined seed parquet created: ${response.data.parquet_file}`);
+      setOutput(`Combined file created: ${response.data.combined_file}`);
       fetchFiles();
+      setSelectedFiles([]);  // Clear selection after combining
     } catch (error) {
       setError(error.response?.data?.error || error.message);
     }
@@ -336,6 +357,11 @@ function App() {
       setIngredientFiles(response.data.ingredient_files);
       setDishFiles(response.data.dish_files);
       setLatexFiles(response.data.latex_files);
+      setAllFiles([
+        ...response.data.ingredient_files.map(file => ({ name: file, type: 'ingredient' })),
+        ...response.data.dish_files.map(file => ({ name: file, type: 'dish' })),
+        ...response.data.latex_files.map(file => ({ name: file, type: 'latex' }))
+      ]);
     } catch (error) {
       console.error('Error fetching files:', error);
       setError('Error fetching files');
@@ -365,10 +391,12 @@ function App() {
   };
 
   const selectFile = async (filename, type) => {
+    setSelectedFile(filename);
+    setSelectedFileType(type);
+    setFilename(filename);
+    
     try {
       const response = await axios.get(`http://localhost:5000/api/file/${type}/${filename}`);
-      setSelectedFile(filename);
-      setFilename(filename);
       
       if (filename.endsWith('.parquet')) {
         setFileType('parquet');
@@ -378,7 +406,7 @@ function App() {
         setEditorContent('');
         setEditorMode('json');
       } else {
-        setFileType('text');
+        setFileType(filename.split('.').pop());
         setEditorContent(response.data.content);
         setParquetData(null);
         setParquetColumns([]);
@@ -396,10 +424,9 @@ function App() {
       const response = await axios.post('http://localhost:5000/api/save', {
         filename,
         content: editorContent,
-        type: 'ingredient',
       });
       if (response.data.success) {
-        alert('File saved successfully');
+        alert('File saved successfully as txt');
         fetchFiles();
       } else {
         setError(`Error saving file: ${response.data.message}`);
@@ -407,6 +434,43 @@ function App() {
     } catch (error) {
       console.error('Error saving file:', error.response?.data || error.message);
       setError(`Error saving file: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
+  const convertToJson = async () => {
+    try {
+      if (!selectedFile || !selectedTemplate) {
+        throw new Error("Please select a file and a template");
+      }
+
+      const response = await axios.post('http://localhost:5000/api/convert_to_json', {
+        filename: selectedFile,
+        template: selectedTemplate,
+        fileType: selectedFileType
+      });
+
+      setOutput(`JSON file created: ${response.data.json_file}`);
+      fetchFiles();
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+    }
+  };
+
+  const convertJsonToParquetSeed = async () => {
+    try {
+      if (!selectedFile || !selectedFile.endsWith('.json')) {
+        throw new Error("Please select a JSON file to convert to parquet");
+      }
+
+      const response = await axios.post('http://localhost:5000/api/convert_to_json_parquet', {
+        filename: selectedFile,
+      });
+
+      setBuiltSeed(response.data.parquet_file);
+      setOutput(`Seed parquet created: ${response.data.parquet_file}`);
+      fetchFiles();
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
     }
   };
 
@@ -465,9 +529,8 @@ function App() {
       setError(null);
       setOutput("Processing...");
       
-      const seedParquet = builtSeed || selectedFile;
-      if (!seedParquet) {
-        throw new Error("No seed file selected or built. Please select a file or build a seed.");
+      if (!selectedFile || !selectedFile.endsWith('.parquet')) {
+        throw new Error("Please select a parquet file for generating synthetic data.");
       }
       
       if (!selectedOllamaModel) {
@@ -477,9 +540,9 @@ function App() {
       const dataToSend = {
         mode: 'custom',
         ollamaModel: selectedOllamaModel,
-        seedParquet: seedParquet,
+        seedParquet: selectedFile,
         template: selectedTemplate,
-        systemPrompt,
+        systemPrompt: systemPrompt,  // Include the system prompt from the UI
         numSamples: parseInt(numSamples, 10)
       };
   
@@ -533,7 +596,7 @@ function App() {
       <Box sx={{ display: 'flex' }}>
         <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
           <Toolbar>
-            <Typography variant="h6" noWrap component="div">
+            <Typography variant="h4" noWrap component="div">
               🍲Agent Chef🥩
             </Typography>
           </Toolbar>
@@ -550,12 +613,23 @@ function App() {
           <Box sx={{ overflow: 'auto' }}>
             <List>
               <ListItem>
-                <Typography variant="h6">Ingredients (JSON/Parquet/LaTeX)</Typography>
+                <Typography variant="h6">Ingredients</Typography>
               </ListItem>
-              {[...ingredientFiles, ...latexFiles].map(file => (
-                <ListItem key={file} disablePadding>
-                  <ListItemButton onClick={() => selectFile(file, 'ingredient')}>
-                    <ListItemText primary={file} />
+              {allFiles.filter(file => file.type === 'ingredient').map(file => (
+                <ListItem 
+                  key={`${file.type}-${file.name}`} 
+                  disablePadding 
+                  sx={{
+                    backgroundColor: selectedFiles.some(f => f.name === file.name && f.type === file.type) 
+                      ? 'rgba(25, 118, 210, 0.12)' 
+                      : 'transparent',
+                  }}
+                >
+                  <ListItemButton 
+                    onClick={() => handleFileSelection(file)}
+                    onDoubleClick={() => selectFile(file.name, file.type)}
+                  >
+                    <ListItemText primary={file.name} />
                   </ListItemButton>
                 </ListItem>
               ))}
@@ -563,16 +637,55 @@ function App() {
             <Divider />
             <List>
               <ListItem>
-                <Typography variant="h6">Dishes (Synthetic Data)</Typography>
+                <Typography variant="h6">Dishes</Typography>
               </ListItem>
-              {dishFiles.map(file => (
-                <ListItem key={file} disablePadding>
-                  <ListItemButton onClick={() => selectFile(file, 'dish')}>
-                    <ListItemText primary={file} />
+              {allFiles.filter(file => file.type === 'dish').map(file => (
+                <ListItem 
+                  key={`${file.type}-${file.name}`} 
+                  disablePadding 
+                  sx={{
+                    backgroundColor: selectedFiles.some(f => f.name === file.name && f.type === file.type) 
+                      ? 'rgba(25, 118, 210, 0.12)' 
+                      : 'transparent',
+                  }}
+                >
+                  <ListItemButton 
+                    onClick={() => handleFileSelection(file)}
+                    onDoubleClick={() => selectFile(file.name, file.type)}
+                  >
+                    <ListItemText primary={file.name} />
                   </ListItemButton>
                 </ListItem>
               ))}
             </List>
+            {latexFiles.length > 0 && (
+              <>
+                <Divider />
+                <List>
+                  <ListItem>
+                    <Typography variant="h6">LaTeX Files</Typography>
+                  </ListItem>
+                  {allFiles.filter(file => file.type === 'latex').map(file => (
+                    <ListItem 
+                      key={`${file.type}-${file.name}`} 
+                      disablePadding 
+                      sx={{
+                        backgroundColor: selectedFiles.some(f => f.name === file.name && f.type === file.type) 
+                          ? 'rgba(25, 118, 210, 0.12)' 
+                          : 'transparent',
+                      }}
+                    >
+                      <ListItemButton 
+                        onClick={() => handleFileSelection(file)}
+                        onDoubleClick={() => selectFile(file.name, file.type)}
+                      >
+                        <ListItemText primary={file.name} />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              </>
+            )}
           </Box>
         </Drawer>
         <MainContent>
@@ -620,86 +733,96 @@ function App() {
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   sx={{ mb: 2 }}
                 />
-              </Paper>
-            </Grid>
-            <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
-                <TextField
-                  fullWidth
-                  label="Filename"
-                  value={filename}
-                  onChange={(e) => setFilename(e.target.value)}
-                  sx={{ mb: 2 }}
-                />
-                {fileType === 'parquet' ? (
-                  <ParquetViewer data={parquetData} columns={parquetColumns} totalRows={totalRows} />
-                ) : (
-                  <AceEditor
-                    mode={editorMode}
-                    theme="monokai"
-                    onChange={setEditorContent}
-                    value={editorContent}
-                    name="editor"
-                    editorProps={{ $blockScrolling: true }}
-                    width="100%"
-                    height="400px"
-                  />
-                )}
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-                  <Button variant="contained" onClick={saveFile}>
-                    Save File
-                  </Button>
-                  <Button 
-                    variant="contained" 
-                    onClick={buildSeed}
-                    disabled={!selectedTemplate || !editorContent}
-                  >
-                    Build Seed Parquet
-                  </Button>
-                  <Button 
-                    variant="contained" 
-                    onClick={combineFiles}
-                    disabled={selectedFiles.length < 2}
-                  >
-                    Combine Selected Files
-                  </Button>
-                </Box>
-              </Paper>
-            </Grid>
-            <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h5" gutterBottom>Synthetic Data Generation</Typography>
-                <Button 
-                  fullWidth
-                  variant="contained" 
-                  onClick={runAgentChef}
-                  disabled={!selectedOllamaModel || (!builtSeed && !selectedFile)}
-                  sx={{ mb: 2 }}
-                >
-                  Generate Synthetic Data
-                </Button>
-              </Paper>
-            </Grid>
-            {error && (
-              <Grid item xs={12}>
-                <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.main' }}>
-                  <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>Error</Typography>
-                  <Typography sx={{ color: 'white' }}>{error}</Typography>
-                </Paper>
-              </Grid>
-            )}
-            <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 2 }}>
-                <Typography variant="h5" gutterBottom>Output</Typography>
-                <pre>{output}</pre>
-              </Paper>
-            </Grid>
+            </Paper>
           </Grid>
-        </MainContent>
-      </Box>
-    </ThemeProvider>
-  );
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
+              <TextField
+                fullWidth
+                label="Filename"
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+              {fileType === 'parquet' ? (
+                <ParquetViewer data={parquetData} columns={parquetColumns} totalRows={totalRows} />
+              ) : (
+                <AceEditor
+                  mode={editorMode}
+                  theme="monokai"
+                  onChange={setEditorContent}
+                  value={editorContent}
+                  name="editor"
+                  editorProps={{ $blockScrolling: true }}
+                  width="100%"
+                  height="400px"
+                />
+              )}
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
+                <Button variant="contained" onClick={saveFile}>
+                  Save as TXT
+                </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={convertToJson}
+                  disabled={!selectedTemplate || !selectedFile || !(fileType === 'txt' || fileType === 'tex')}
+                >
+                  Convert to JSON & Parquet Seeds
+                </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={combineSelectedFiles}
+                  disabled={selectedFiles.length < 2}
+                >
+                  Combine Selected Files
+                </Button>
+              </Box>
+              {selectedFiles.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle1">Selected Files:</Typography>
+                  <ul>
+                    {selectedFiles.map(file => (
+                      <li key={`${file.type}-${file.name}`}>{file.name} ({file.type})</li>
+                    ))}
+                  </ul>
+                </Box>
+              )}
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h5" gutterBottom>Synthetic Data Generation</Typography>
+              <Button 
+                fullWidth
+                variant="contained" 
+                onClick={runAgentChef}
+                disabled={!selectedOllamaModel || !selectedFile || !selectedFile.endsWith('.parquet')}
+                sx={{ mb: 2 }}
+              >
+                Generate Synthetic Data
+              </Button>
+            </Paper>
+          </Grid>
+          {error && (
+            <Grid item xs={12}>
+              <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.main' }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>Error</Typography>
+                <Typography sx={{ color: 'white' }}>{error}</Typography>
+              </Paper>
+            </Grid>
+          )}
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2 }}>
+              <Typography variant="h5" gutterBottom>Output</Typography>
+              <pre>{output}</pre>
+            </Paper>
+          </Grid>
+        </Grid>
+      </MainContent>
+    </Box>
+  </ThemeProvider>
+);
 }
 
 export default App;

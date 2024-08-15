@@ -1,8 +1,6 @@
 #__init__.py
-from .Dataset_Manager_Class import Dataset_Manager_Class
-from .Template_Manager_Class import Template_Manager_Class
-from .Prompt_Manager_Class import Prompt_Manager_Class
-from .Ollama_Interface_Class import Ollama_Interface_Class
-from .File_Handler_Class import File_Handler_Class
+from .DatasetKitchen import DatasetManager
+from .DatasetKitchen import TemplateManager
+from .OllamaInterface import OllamaInterface
+from .FileHandler import FileHandler
 from .ArxivPaperDownloader import ArxivPaperDownloader
-from .SearchXDatasetBuilder import SearchXDatasetBuilder

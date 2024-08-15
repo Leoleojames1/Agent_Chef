@@ -4,7 +4,7 @@ import json
 from colorama import Fore
 import logging
 
-class File_Handler_Class:
+class FileHandler:
     def __init__(self, input_dir, output_dir):
         self.input_dir = input_dir
         self.output_dir = output_dir

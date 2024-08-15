@@ -4,23 +4,25 @@ import os
 import json
 import pandas as pd
 import logging
-from Agent_Chef_Class import Agent_Chef_Class
-from cutlery.Template_Manager_Class import Template_Manager_Class
-from cutlery.Ollama_Interface_Class import Ollama_Interface_Class
+from AgentChef import AgentChef
+from cutlery.DatasetKitchen import TemplateManager
+from cutlery.OllamaInterface import OllamaInterface
 from datetime import datetime
+import traceback
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 logging.basicConfig(level=logging.INFO)
 
 # Initialize Agent_Chef, TemplateManager, and OllamaInterface
-chef = Agent_Chef_Class()
-template_manager = Template_Manager_Class(chef.input_dir)
-ollama_interface = Ollama_Interface_Class(None)  # Initialize with no specific model
+base_dir = os.path.join(os.path.dirname(__file__), 'agent_chef_data')
+chef = AgentChef(base_dir)
+template_manager = TemplateManager(chef.input_dir)
+ollama_interface = OllamaInterface(None)  # Initialize with no specific model
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
-    ingredient_files = [f for f in os.listdir(chef.input_dir) if f.endswith(('.json', '.parquet'))]
+    ingredient_files = [f for f in os.listdir(chef.input_dir) if f.endswith(('.json', '.parquet', '.txt', '.tex'))]
     dish_files = [f for f in os.listdir(chef.output_dir) if f.endswith('.parquet')]
     construction_files = [f for f in os.listdir(chef.construction_zone_dir) if f.endswith('.txt')]
     latex_files = [f for f in os.listdir(chef.latex_library_dir) if f.endswith('.tex')]
@@ -48,10 +50,12 @@ def get_file_content(type, filename):
             content = df.head(100).to_dict('records')  # Convert first 100 rows to list of dictionaries
             columns = df.columns.tolist()
             return jsonify({"content": content, "columns": columns, "total_rows": len(df)})
-        else:
-            with open(file_path, 'r') as f:
+        elif filename.endswith(('.txt', '.json', '.tex')):
+            with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             return jsonify({"content": content})
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
     except Exception as e:
@@ -62,18 +66,15 @@ def save_file():
     data = request.json
     filename = data.get('filename')
     content = data.get('content')
-    file_type = data.get('type')
     
     try:
-        if not filename or content is None or not file_type:
+        if not filename or content is None:
             raise ValueError("Missing required data")
 
-        if file_type in ['ingredient', 'text']:
-            file_path = os.path.join(chef.input_dir, filename)
-        elif file_type == 'dish':
-            file_path = os.path.join(chef.output_dir, filename)
-        else:
-            raise ValueError(f"Invalid file type: {file_type}")
+        # Always save as txt file
+        base_filename = os.path.splitext(filename)[0]
+        txt_filename = f"{base_filename}.txt"
+        file_path = os.path.join(chef.input_dir, txt_filename)
         
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -158,39 +159,65 @@ def generate_synthetic():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.route('/api/convert_to_json', methods=['POST'])
+def convert_to_json():
+    data = request.json
+    filename = data.get('filename')
+    template_name = data.get('template')
+    
+    try:
+        if not filename or not template_name:
+            return jsonify({'error': 'Filename and template name are required'}), 400
+
+        file_path = os.path.join(chef.input_dir, filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            text_content = f.read()
+
+        # Use the Dataset_Manager to parse the text content to JSON
+        df, json_file, _ = chef.dataset_manager.parse_text_to_parquet(text_content, template_name, os.path.splitext(filename)[0])
+        
+        return jsonify({
+            'message': 'JSON file created successfully',
+            'json_file': os.path.basename(json_file)
+        })
+    except Exception as e:
+        logging.exception(f"Error converting to JSON: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+    
 @app.route('/api/convert_to_json_parquet', methods=['POST'])
 def convert_to_json_parquet():
     data = request.json
-    content = data['content']
-    template_name = data.get('template')
     filename = data['filename']
     
     try:
-        if not template_name:
-            return jsonify({'error': 'Template name is required'}), 400
+        json_file_path = os.path.join(chef.input_dir, filename)
+        if not os.path.exists(json_file_path):
+            return jsonify({'error': 'JSON file not found'}), 404
 
-        # Use the Dataset_Manager to parse the text content
-        df = chef.dataset_manager.parse_text_to_parquet(content, template_name)
-        
+        # Read JSON file
+        with open(json_file_path, 'r') as f:
+            json_data = json.load(f)
+
+        # Convert JSON to DataFrame
+        df = pd.DataFrame(json_data)
+
         # Generate base filename without extension
         base_filename = os.path.splitext(filename)[0]
-        
-        # Save as JSON
-        json_file = os.path.join(chef.input_dir, f"{base_filename}.json")
-        df.to_json(json_file, orient='records', indent=2)
         
         # Save as Parquet
         parquet_file = os.path.join(chef.input_dir, f"{base_filename}.parquet")
         df.to_parquet(parquet_file, engine='pyarrow')
         
         return jsonify({
-            'json_file': os.path.basename(json_file),
+            'message': 'Parquet seed created successfully',
             'parquet_file': os.path.basename(parquet_file)
         })
     except Exception as e:
-        logging.exception(f"Error converting to JSON/Parquet: {str(e)}")
+        logging.exception(f"Error converting to Parquet: {str(e)}")
         return jsonify({'error': str(e)}), 400
-
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json
@@ -208,12 +235,16 @@ def run_agent_chef():
         if not seed_parquet:
             raise ValueError("Seed parquet file not specified")
         
+        # Ensure the seed_parquet file exists
+        seed_parquet_path = os.path.join(chef.input_dir, seed_parquet)
+        if not os.path.exists(seed_parquet_path):
+            raise ValueError(f"Seed parquet file not found: {seed_parquet_path}")
+        
         result = chef.run(
             mode=data['mode'],
             seed_parquet=seed_parquet,
-            synthetic_technique=data.get('syntheticTechnique'),
             template=data.get('template'),
-            system_prompt=data.get('systemPrompt'),
+            system_prompt=data.get('systemPrompt'),  # Pass the system prompt
             num_samples=int(data.get('numSamples', 100))
         )
         
@@ -263,36 +294,78 @@ def combine_files():
     data = request.json
     files = data.get('files', [])
     
-    if not files:
-        return jsonify({'error': 'No files specified for combination'}), 400
+    if len(files) < 2:
+        return jsonify({'error': 'At least two files must be selected for combination'}), 400
+    
+    # Check if all files are of the same type
+    file_types = set(os.path.splitext(file['name'])[1] for file in files)
+    if len(file_types) > 1:
+        return jsonify({'error': 'All selected files must be of the same type'}), 400
+
+    file_extension = file_types.pop()  # Get the file extension (including the dot)
     
     try:
-        combined_data = []
-        for file in files:
-            file_path = os.path.join(chef.input_dir, file)
-            if file.endswith('.parquet'):
+        if file_extension == '.parquet':
+            # Special handling for parquet files
+            dfs = []
+            for file in files:
+                file_name = file['name']
+                file_type = file['type']
+                
+                if file_type == 'ingredient':
+                    file_path = os.path.join(chef.input_dir, file_name)
+                elif file_type == 'dish':
+                    file_path = os.path.join(chef.output_dir, file_name)
+                else:
+                    return jsonify({'error': f'Invalid file type: {file_type}'}), 400
+                
                 df = pd.read_parquet(file_path)
-                combined_data.append(df)
-            elif file.endswith('.json'):
-                with open(file_path, 'r') as f:
-                    json_data = json.load(f)
-                df = pd.DataFrame(json_data)
-                combined_data.append(df)
-            else:  # Assume it's a text file
-                with open(file_path, 'r') as f:
-                    text_data = f.read()
-                df = pd.DataFrame({'content': [text_data]})
-                combined_data.append(df)
-        
-        combined_df = pd.concat(combined_data, ignore_index=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_file = os.path.join(chef.input_dir, f'combined_seed_{timestamp}.parquet')
-        combined_df.to_parquet(output_file, engine='pyarrow')
+                dfs.append(df)
+            
+            combined_df = pd.concat(dfs, ignore_index=True)
+            
+            # Create a unique name for the combined file
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            file_types = '_'.join(sorted(set([f['type'] for f in files])))
+            output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
+            output_file = os.path.join(chef.input_dir, output_filename)
+            
+            # Save the combined data
+            combined_df.to_parquet(output_file, engine='pyarrow')
+        else:
+            # Handling for text-based files (txt, json, tex)
+            combined_data = []
+            for file in files:
+                file_name = file['name']
+                file_type = file['type']
+                
+                if file_type == 'ingredient':
+                    file_path = os.path.join(chef.input_dir, file_name)
+                elif file_type == 'dish':
+                    file_path = os.path.join(chef.output_dir, file_name)
+                else:
+                    return jsonify({'error': f'Invalid file type: {file_type}'}), 400
+                
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    combined_data.append(content)
+            
+            # Combine the data
+            combined_content = '\n\n'.join(combined_data)
+            
+            # Create a unique name for the combined file
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            file_types = '_'.join(sorted(set([f['type'] for f in files])))
+            output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
+            output_file = os.path.join(chef.input_dir, output_filename)
+            
+            # Save the combined data
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(combined_content)
         
         return jsonify({
             'message': 'Files combined successfully',
-            'parquet_file': os.path.basename(output_file)
+            'combined_file': output_filename
         })
     except Exception as e:
         logging.exception(f"Error combining files: {str(e)}")

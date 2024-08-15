@@ -20,6 +20,9 @@
     "python",
     "example"
   ],
+  "formulas": [
+    "formula"
+  ],
   "latexSeries": [
     "formula",
     "solution"
@@ -53,5 +56,22 @@
     "actions",
     "chainOfThought",
     "prompts"
+  ],
+  "ontology1": [
+    "ontology",
+    "description",
+    "application",
+    "actions",
+    "chainOfThought",
+    "self_prompts"
+  ],
+  "ontology2": [
+    "ontology",
+    "description"
+  ],
+  "ontology3": [
+    "ontology",
+    "description",
+    "chainOfThought"
   ]
 }

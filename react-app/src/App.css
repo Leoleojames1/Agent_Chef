@@ -4,41 +4,6 @@
   padding: 20px;
 }
 
-.setup, .file-list, .editor, .template, .system-prompt, .output {
-  margin-bottom: 20px;
-}
-
-button {
-  margin-top: 10px;
-}
-
-textarea, select, input {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-li {
-  cursor: pointer;
-  padding: 5px;
-  border: 1px solid #ddd;
-  margin-bottom: 5px;
-}
-
-li:hover {
-  background-color: #f0f0f0;
-}
-
-pre {
-  background-color: #f0f0f0;
-  padding: 10px;
-  border-radius: 5px;
-}
-
 .perlin-noise-background {
   position: fixed;
   top: 0;
