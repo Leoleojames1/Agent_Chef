@@ -1,0 +1,110 @@
+[
+  {
+    "function":"\/swap"
+  },
+  {
+    "function":"\/agent select"
+  },
+  {
+    "function":"\/voice swap"
+  },
+  {
+    "function":"\/save as"
+  },
+  {
+    "function":"\/load as"
+  },
+  {
+    "function":"\/write modelfile"
+  },
+  {
+    "function":"\/convert tensor"
+  },
+  {
+    "function":"\/convert gguf"
+  },
+  {
+    "function":"\/listen on"
+  },
+  {
+    "function":"\/listen off"
+  },
+  {
+    "function":"\/voice off"
+  },
+  {
+    "function":"\/voice on"
+  },
+  {
+    "function":"\/speech on"
+  },
+  {
+    "function":"\/speech off"
+  },
+  {
+    "function":"\/wake on"
+  },
+  {
+    "function":"\/wake off"
+  },
+  {
+    "function":"\/latex on"
+  },
+  {
+    "function":"\/latex off"
+  },
+  {
+    "function":"\/command auto on"
+  },
+  {
+    "function":"\/command auto off"
+  },
+  {
+    "function":"\/llava flow"
+  },
+  {
+    "function":"\/llava freeze"
+  },
+  {
+    "function":"\/auto on"
+  },
+  {
+    "function":"\/auto off"
+  },
+  {
+    "function":"\/quit"
+  },
+  {
+    "function":"\/ollama create"
+  },
+  {
+    "function":"\/ollama show"
+  },
+  {
+    "function":"\/ollama template"
+  },
+  {
+    "function":"\/ollama license"
+  },
+  {
+    "function":"\/ollama list"
+  },
+  {
+    "function":"\/ollama loaded"
+  },
+  {
+    "function":"\/splice video"
+  },
+  {
+    "function":"\/developer new"
+  },
+  {
+    "function":"\/start node"
+  },
+  {
+    "function":"\/synthetic generator"
+  },
+  {
+    "function":"\/convert wav"
+  }
+]

@@ -218,6 +218,7 @@ def convert_to_json_parquet():
     except Exception as e:
         logging.exception(f"Error converting to Parquet: {str(e)}")
         return jsonify({'error': str(e)}), 400
+    
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json

@@ -1,0 +1,14 @@
+[
+  {
+    "function":"Q: \u2211[n=1 to \u221e] (1\/n^2) A: \u03c0^2\/6"
+  },
+  {
+    "function":"Q: \u220f[n=1 to \u221e] (1 + 1\/n) A: e"
+  },
+  {
+    "function":"Q: \u2211[n=1 to \u221e] (-1)^n\/n A: -ln(2)"
+  },
+  {
+    "function":"Q: \u220f[n=1 to \u221e] (1 - 1\/n^2) A: sin(\u03c0)\/\u03c0"
+  }
+]

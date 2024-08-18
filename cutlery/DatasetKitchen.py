@@ -188,20 +188,20 @@ class TemplateManager:
                 templates = json.load(f)
         else:
             templates = {
-                "instruct": ["user", "request", "assistant", "response"],
-                "functions": ["function"],
-                "functionCall": ["command", "description", "args", "actions"],
-                "mathFusion": ["formula", "solution", "python", "example"],
-                "formulas": ["formula"],
-                "latexSeries": ["formula", "solution"],
-                "latexTheory": ["theory", "explanation"],
-                "aiConcept": ["concept", "definition", "useCase", "example"],
-                "dataStructure": ["name", "description", "timeComplexity", "pythonImplementation"],
-                "pythonBase": ["code", "description", "args", "returns"],
-                "pythonOllama": ["code", "description", "args", "actions", "chainOfThought","prompts"],
-                "ontology1": ["ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
-                "ontology2": ["ontology", "description"],
-                "ontology3": ["ontology", "description", "chainOfThought"],
+                "chat": ["user", "assistant"],
+                "instruct": ["request", "response"],
+                "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],                
+                "commander": ["request", "response", "commandName", "task", "args", "clarification", "confirmation"],
+                "intention": ["request", "response", "commandName", "task", "args", "enumerate", "validate", "describe"],
+                "latexSeries": ["request", "response", "formula", "solution"],
+                "latexTheory": ["request", "response", "theory", "explanation"],
+                "latexMath" : ["request", "response", "formula", "solution", "theory", "explanation"],
+                "mathPythonFusion": ["request", "response", "formula", "solution", "python", "example"],
+                "pythonBase": ["request", "response", "code", "description", "args", "returns"],
+                "pythonOllama": ["request", "response", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],
+                "ontology1": ["request", "response", "ontology", "description"],
+                "ontology2": ["request", "response", "ontology", "description", "chainOfThought"],
+                "ontology3": ["request", "response", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
             }
             self.save_templates(templates)
         
