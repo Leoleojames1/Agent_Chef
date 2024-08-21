@@ -22,7 +22,15 @@ src="docs/agent_chef_poster.jpeg"
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
     
 <img
-src="docs/icons/agent_chef_ui_3.png"
+src="docs/icons/agent_chef_ui_4.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+
+<img
+src="docs/icons/agent_chef_ui_5.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+  
+<img
+src="docs/icons/agent_chef_ui_6.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
   
 ## Why Agent Chef?
