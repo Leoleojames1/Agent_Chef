@@ -1,0 +1,20 @@
+[
+  {
+    "request":"Please show me the currently loaded ollama model.",
+    "response":"\/ollama show",
+    "commandName":"\/ollama show",
+    "task":"displays the currently loaded ollama model.",
+    "args":"none",
+    "clarification":"none",
+    "confirmation":"none"
+  },
+  {
+    "request":"Please show me your license file.",
+    "response":"\/ollama license",
+    "commandName":"\/ollama license",
+    "task":"displays the license file for the currently loaded ollama model.",
+    "args":"none",
+    "clarification":"none",
+    "confirmation":"none"
+  }
+]

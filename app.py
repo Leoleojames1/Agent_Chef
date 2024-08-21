@@ -76,7 +76,7 @@ def save_file():
         txt_filename = f"{base_filename}.txt"
         file_path = os.path.join(chef.input_dir, txt_filename)
         
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8', newline='') as f:
             f.write(content)
         
         return jsonify({"success": True, "message": "File saved successfully", "file_path": file_path})
@@ -186,6 +186,40 @@ def convert_to_json():
     except Exception as e:
         logging.exception(f"Error converting to JSON: {str(e)}")
         return jsonify({'error': str(e)}), 400
+
+@app.route('/api/parse_dataset', methods=['POST'])
+def parse_dataset():
+    data = request.json
+    content = data.get('content')
+    template_name = data.get('template')
+    mode = data.get('mode', 'manual')
+    
+    try:
+        if not content or not template_name:
+            return jsonify({'error': 'Content and template name are required'}), 400
+
+        df = chef.dataset_manager.parse_dataset(content, template_name, mode)
+        
+        # Save as JSON
+        json_filename = f"parsed_dataset_{int(time.time())}.json"
+        json_file = os.path.join(chef.input_dir, json_filename)
+        df.to_json(json_file, orient='records', indent=2)
+
+        # Save as Parquet
+        parquet_filename = f"parsed_dataset_{int(time.time())}.parquet"
+        parquet_file = os.path.join(chef.input_dir, parquet_filename)
+        df.to_parquet(parquet_file, engine='pyarrow')
+
+        return jsonify({
+            'success': True,
+            'message': 'Dataset parsed successfully',
+            'json_file': json_filename,
+            'parquet_file': parquet_filename,
+            'result': df.to_dict(orient='records')
+        })
+    except Exception as e:
+        logging.exception(f"Error parsing dataset: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
     
 @app.route('/api/convert_to_json_parquet', methods=['POST'])
 def convert_to_json_parquet():

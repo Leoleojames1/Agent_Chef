@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import axios from 'axios';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -20,6 +20,8 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/mode-text';
@@ -179,6 +181,8 @@ function App() {
   const [builtSeed, setBuiltSeed] = useState(null);
   const [allFiles, setAllFiles] = useState([]);
   const [selectedFileType, setSelectedFileType] = useState(null);
+  const [formattingMode, setFormattingMode] = useState('manual');
+  const aceEditorRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -419,14 +423,43 @@ function App() {
     }
   };
 
+  const insertSymbol = (symbol) => {
+    const editor = aceEditorRef.current.editor;
+    editor.insert(`$("${symbol}")`);
+    editor.focus();
+  };
+
+  const parseDataset = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/parse_dataset', {
+        content: txtContent,
+        template: selectedTemplate,
+        mode: formattingMode,
+      });
+      if (response.data.success) {
+        setOutput(JSON.stringify(response.data.result, null, 2));
+        fetchFiles();
+      } else {
+        setError(`Error parsing dataset: ${response.data.message}`);
+      }
+    } catch (error) {
+      setError(`Error parsing dataset: ${error.response?.data?.message || error.message}`);
+    }
+  };
+  
   const saveFile = async () => {
     try {
       const response = await axios.post('http://localhost:5000/api/save', {
         filename,
         content: editorContent,
+        type: 'ingredient',
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       if (response.data.success) {
-        alert('File saved successfully as txt');
+        alert('File saved successfully');
         fetchFiles();
       } else {
         setError(`Error saving file: ${response.data.message}`);
@@ -442,13 +475,14 @@ function App() {
       if (!selectedFile || !selectedTemplate) {
         throw new Error("Please select a file and a template");
       }
-
+  
       const response = await axios.post('http://localhost:5000/api/convert_to_json', {
         filename: selectedFile,
+        content: editorContent,  // Send the current editor content
         template: selectedTemplate,
         fileType: selectedFileType
       });
-
+  
       setOutput(`JSON file created: ${response.data.json_file}`);
       fetchFiles();
     } catch (error) {
@@ -686,58 +720,72 @@ function App() {
                 </List>
               </>
             )}
-          </Box>
-        </Drawer>
-        <MainContent>
-          <Toolbar />
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h5" gutterBottom>Setup</Typography>
-                <Select
-                  fullWidth
-                  value={selectedOllamaModel}
-                  onChange={(e) => setSelectedOllamaModel(e.target.value)}
-                  displayEmpty
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="">Select Ollama Model</MenuItem>
-                  {ollamaModels.map((model) => (
-                    <MenuItem key={model} value={model}>{model}</MenuItem>
-                  ))}
-                </Select>
-                <Select
-                  fullWidth
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                  displayEmpty
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="">Select Template</MenuItem>
-                  {renderTemplateOptions()}
-                </Select>
-                <TextField
-                  fullWidth
-                  label="Number of Samples"
-                  type="number"
-                  value={numSamples}
-                  onChange={(e) => setNumSamples(e.target.value)}
-                  sx={{ mb: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="System Prompt"
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  sx={{ mb: 2 }}
-                />
+        </Box>
+      </Drawer>
+      <MainContent>
+        <Toolbar />
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h5" gutterBottom>Setup</Typography>
+              <Select
+                fullWidth
+                value={selectedOllamaModel}
+                onChange={(e) => setSelectedOllamaModel(e.target.value)}
+                displayEmpty
+                sx={{ mb: 2 }}
+              >
+                <MenuItem value="">Select Ollama Model</MenuItem>
+                {ollamaModels.map((model) => (
+                  <MenuItem key={model} value={model}>{model}</MenuItem>
+                ))}
+              </Select>
+              <Select
+                fullWidth
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                displayEmpty
+                sx={{ mb: 2 }}
+              >
+                <MenuItem value="">Select Template</MenuItem>
+                {renderTemplateOptions()}
+              </Select>
+              <TextField
+                fullWidth
+                label="Number of Samples"
+                type="number"
+                value={numSamples}
+                onChange={(e) => setNumSamples(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="System Prompt"
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                sx={{ mb: 2 }}
+              />
             </Paper>
           </Grid>
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
               <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Note: $("") groups can span multiple lines. You can include multi-line content, such as Python code, within a single $("") group.
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formattingMode === 'automatic'}
+                      onChange={(e) => setFormattingMode(e.target.checked ? 'automatic' : 'manual')}
+                    />
+                  }
+                  label="Automatic Formatting"
+                />
+              </Box>
               <TextField
                 fullWidth
                 label="Filename"
@@ -749,6 +797,7 @@ function App() {
                 <ParquetViewer data={parquetData} columns={parquetColumns} totalRows={totalRows} />
               ) : (
                 <AceEditor
+                  ref={aceEditorRef}
                   mode={editorMode}
                   theme="monokai"
                   onChange={setEditorContent}
@@ -757,6 +806,11 @@ function App() {
                   editorProps={{ $blockScrolling: true }}
                   width="100%"
                   height="400px"
+                  setOptions={{
+                    useWorker: false,
+                    showLineNumbers: true,
+                    tabSize: 2,
+                  }}
                 />
               )}
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
@@ -776,6 +830,9 @@ function App() {
                   disabled={selectedFiles.length < 2}
                 >
                   Combine Selected Files
+                </Button>
+                <Button variant="contained" onClick={parseDataset}>
+                  Parse Dataset
                 </Button>
               </Box>
               {selectedFiles.length > 0 && (

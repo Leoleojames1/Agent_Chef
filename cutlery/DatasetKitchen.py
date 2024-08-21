@@ -8,6 +8,7 @@ import os
 import logging
 from colorama import Fore
 import time
+import re
 
 class DatasetManager:
     def __init__(self, ollama_interface, template_manager, input_dir, output_dir):
@@ -118,31 +119,14 @@ class DatasetManager:
 
         self.logger.info(f"Parsing text content using template: {template_name}")
         
-        # Save the text content to a txt file
+        # Save the original text content to a txt file
         txt_file = os.path.join(self.input_dir, f"{filename}.txt")
         with open(txt_file, 'w', encoding='utf-8') as f:
             f.write(text_content)
-        self.logger.info(f"Saved text content to {txt_file}")
+        self.logger.info(f"Saved original text content to {txt_file}")
 
-        # Use Ollama's JSON mode to parse the text content based on the template
-        json_structure = {column: [] for column in template}
-        prompt = f"Parse the following text into JSON with these keys: {', '.join(template)}. Each key should contain a list of relevant parsed data.\n\nText to parse:\n{text_content}"
-        
-        parsed_data = self.ollama_interface.chat_json(messages=[
-            {'role': 'system', 'content': "You are a data parsing assistant. Parse the given text into the specified JSON structure."},
-            {'role': 'user', 'content': prompt}
-        ])
-
-        if not parsed_data:
-            self.logger.warning("AI model failed to generate valid JSON. Falling back to manual structuring.")
-            parsed_data = self.fallback_json_structure(text_content, template)
-
-        self.logger.info("Successfully structured content as JSON")
-        
-        # Ensure all template columns are present in the parsed data
-        for column in template:
-            if column not in parsed_data:
-                parsed_data[column] = []
+        # Parse the content using manual formatting
+        parsed_data = self.parse_manual_formatting(text_content, template)
 
         # Create DataFrame from parsed data
         df = pd.DataFrame(parsed_data)
@@ -174,6 +158,60 @@ class DatasetManager:
                 structured_data[column].append(line.strip())
         
         return structured_data
+    
+    def parse_dataset(self, content, template_name, mode='manual'):
+        template = self.template_manager.get_template(template_name)
+        if not template:
+            raise ValueError(f"Template '{template_name}' not found")
+
+        if mode == 'manual':
+            parsed_data = self.parse_manual_formatting(content, template)
+        elif mode == 'automatic':
+            formatted_content = self.apply_automatic_formatting(content, template)
+            parsed_data = self.parse_manual_formatting(formatted_content, template)
+        else:
+            raise ValueError(f"Invalid parsing mode: {mode}")
+
+        df = pd.DataFrame(parsed_data)
+        return df
+    
+    def parse_manual_formatting(self, content, template):
+        parsed_data = {column: [] for column in template}
+        pattern = re.compile(r'\$\("((?:(?!\$\(").|\n)*?)"\)', re.DOTALL)
+        matches = pattern.findall(content)
+
+        num_columns = len(template)
+        for i, match in enumerate(matches):
+            column_index = i % num_columns
+            column = template[column_index]
+            # Remove any leading/trailing whitespace, but preserve internal formatting
+            parsed_data[column].append(match.strip())
+
+        # Ensure all columns have the same number of entries
+        max_length = max(len(column_data) for column_data in parsed_data.values())
+        for column in parsed_data:
+            parsed_data[column] += [''] * (max_length - len(parsed_data[column]))
+
+        return parsed_data
+    
+    def apply_automatic_formatting(self, content, template):
+        prompt = f"""Format the following text using $("") symbols according to these categories: {', '.join(template)}. 
+        Follow these rules strictly:
+        1. Each $("") group should correspond to a single category in order, cycling through the categories as needed.
+        2. Everything between $("") should be treated as a single unit, even if it spans multiple lines.
+        3. Do not split content within $("") groups.
+        4. Ignore any content that is not enclosed in $("") delimiters.
+        5. Preserve all formatting, including newlines, within the $("") groups.
+
+        Text to format:
+        {content}"""
+        
+        response = self.ollama_interface.chat(messages=[
+            {'role': 'system', 'content': "You are a data formatting assistant. Format the given text using $('') symbols for the specified categories, following the rules provided strictly."},
+            {'role': 'user', 'content': prompt}
+        ])
+
+        return response['message']['content']
     
 class TemplateManager:
     def __init__(self, input_dir):
