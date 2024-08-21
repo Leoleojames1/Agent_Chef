@@ -20,15 +20,25 @@ src="docs/agent_chef_poster.jpeg"
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
-    
+
+## Setup
+Start by selecting your ollama model, system prompt, number of duplicates, and the parquet column template format.
 <img
 src="docs/icons/agent_chef_ui_4.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
 
+## Procedural construction
+After setup, manually construct your dataset group formatting by wrapping each data point in $("data") wrappers.
+<img
+src="docs/icons/agent_chef_ui_4.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+These group tags allow agent chef to splice the data out into the correct parquet cells for dataset construction. The automatic formatting tool is currently experimental however it attempts to generate the $("data") tags from the template formatting and inference. Only use this feature if you are daring. 
 <img
 src="docs/icons/agent_chef_ui_5.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
-  
+
+## Synthetic Generation
+After procedural dataset construction is complete, you can move on to generating the synthetic dataset from the procedural parquet.
 <img
 src="docs/icons/agent_chef_ui_6.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
