@@ -15,6 +15,12 @@
     "useCase",
     "example"
   ],
+  "functionCall": [
+    "request",
+    "response",
+    "explain",
+    "task"
+  ],
   "commander": [
     "request",
     "response",

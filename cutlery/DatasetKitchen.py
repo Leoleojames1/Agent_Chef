@@ -228,7 +228,8 @@ class TemplateManager:
             templates = {
                 "chat": ["user", "assistant"],
                 "instruct": ["request", "response"],
-                "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],                
+                "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],      
+                "functionCall": ["request", "response", "explain", "task",],          
                 "commander": ["request", "response", "commandName", "task", "args", "clarification", "confirmation"],
                 "intention": ["request", "response", "commandName", "task", "args", "enumerate", "validate", "describe"],
                 "latexSeries": ["request", "response", "formula", "solution"],

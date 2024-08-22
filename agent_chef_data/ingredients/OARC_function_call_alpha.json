@@ -1,0 +1,122 @@
+[
+  {
+    "request":"Please swap the loaded ollama llm model.",
+    "response":"\/swap",
+    "explain":"Please explain what the \/swap command does.",
+    "task":"Allows the user to select and swap the current llm model with another."
+  },
+  {
+    "request":"Please load the agent select for the agent roll cage.",
+    "response":"\/agent select",
+    "explain":"Please explain what the \/agent select command does.",
+    "task":"Allows the user to select which agent template should be loaded into, and used by Ollama Agent Roll Cage."
+  },
+  {
+    "request":"Please change your voice model.",
+    "response":"\/voice swap",
+    "explain":"Please explain what the \/voice swap command does.",
+    "task":"Allows the user to select which voice model finetune should loaded into, and used by Ollama Agent Roll Cage."
+  },
+  {
+    "request":"Please turn on automatic execution.",
+    "response":"\/automatic on",
+    "explain":"Please explain what the \/automatic on command does.",
+    "task":"Allows the user to turn on the automatic function calling parser for your command response strings to be\n automatically executed."
+  },
+  {
+    "request":"Please turn off automatic execution.",
+    "response":"\/automatic off",
+    "explain":"Please explain what the \/automatic off command does.",
+    "task":"Allows the user to turn off the automatic function calling parser for your command response strings to no longer be\n automatically executed."
+  },
+  {
+    "request":"Please turn on the speech recognition model.",
+    "response":"\/listen on",
+    "explain":"Please explain what the \/listen on command does.",
+    "task":"Turns on the speech recognition model."
+  },
+  {
+    "request":"Please turn off the speech recognition model.",
+    "response":"\/listen off",
+    "explain":"Please explain what the \/listen off command does.",
+    "task":"Turns off the speech recognition model."
+  },
+  {
+    "request":"Please turn on the text to speech model",
+    "response":"\/voice on",
+    "explain":"Please explain what the \/voice on command does.",
+    "task":"Loads the text to speech model in VRAM or CPU, and allows the user to select which voice model finetune is used for\n speech generation for Ollama Agent Roll Cage."
+  },
+  {
+    "request":"Please turn off the text to speech model.",
+    "response":"\/voice off",
+    "explain":"Please explain what the \/voice off command does.",
+    "task":"Turns the text to speech generation model off."
+  },
+  {
+    "request":"Please turn on the speech to speech agent.",
+    "response":"\/speech on",
+    "explain":"Please explain what the \/speech on command does.",
+    "task":"Activates both the speech recognition, and text to speech generation models, for seemless speech to speech integration."
+  },
+  {
+    "request":"Please turn on the speech to speech agent.",
+    "response":"\/speech off",
+    "explain":"Please explain what the \/speech off command does.",
+    "task":"Deactivates both the speech recognition, and text to speech generation models, to quit seemless speech to speech and\n enter text to text mode."
+  },
+  {
+    "request":"Please turn on the latex mathematics & formula rendering tool.",
+    "response":"\/latex on",
+    "explain":"Please explain what the \/latex on command does.",
+    "task":"Activates the customTkinter gui for latex formula rendering."
+  },
+  {
+    "request":"Please turn off the latex mathematics & formula rendering tool.",
+    "response":"\/latex off",
+    "explain":"Please explain what the \/latex off command does.",
+    "task":"Deactivates the customTkinter gui for latex formula rendering."
+  },
+  {
+    "request":"Please turn on the ollama llava vision model.",
+    "response":"\/llava flow",
+    "explain":"Please explain what the \/llava flow command does.",
+    "task":"Allows the user to select which ollama Llava model should be loaded for vision."
+  },
+  {
+    "request":"Please turn off the ollama llava vision model.",
+    "response":"\/llava freeze",
+    "explain":"Please explain what the \/llava freeze command does.",
+    "task":"Deactivates the ollama llava vision model."
+  },
+  {
+    "request":"Please show me the ollama template file.",
+    "response":"\/ollama template",
+    "explain":"Please explain what the \/ollama template command does.",
+    "task":"Prints the template file for the currently loaded llm or llava models with ollama."
+  },
+  {
+    "request":"Please show me the list of ollama models.",
+    "response":"\/ollama list",
+    "explain":"Please explain what the \/ollama list command does.",
+    "task":"Prints the list of ollama models currently downloaded in ollama."
+  },
+  {
+    "request":"Please show me the currently loaded ollama models.",
+    "response":"\/ollama loaded",
+    "explain":"Please explain what the \/ollama loaded command does.",
+    "task":"Prints the currently loaded ollama models."
+  },
+  {
+    "request":"Please show me the modelfiles for the currently loaded ollama models.",
+    "response":"\/ollama show",
+    "explain":"Please explain what the \/ollama show command does.",
+    "task":"Prints the modelfile for the currently loaded ollama models."
+  },
+  {
+    "request":"Please show me your license file.",
+    "response":"\/ollama license",
+    "explain":"Please explain what the \/ollama license command does.",
+    "task":"Prints the license file for the currently loaded ollama model."
+  }
+]
