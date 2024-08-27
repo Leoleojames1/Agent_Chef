@@ -22,6 +22,13 @@
     "task"
   ],
   "commander": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "command"
+  ],
+  "commander_extra": [
     "request",
     "response",
     "commandName",

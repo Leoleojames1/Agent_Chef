@@ -21,9 +21,14 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
 import Switch from '@mui/material/Switch';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/mode-python';
+import 'ace-builds/src-noconflict/mode-javascript';
+import 'ace-builds/src-noconflict/mode-html';
+import 'ace-builds/src-noconflict/mode-css';
 import 'ace-builds/src-noconflict/mode-text';
 import 'ace-builds/src-noconflict/theme-monokai';
 import { styled } from '@mui/system';
@@ -183,6 +188,16 @@ function App() {
   const [selectedFileType, setSelectedFileType] = useState(null);
   const [formattingMode, setFormattingMode] = useState('manual');
   const aceEditorRef = useRef(null);
+  const [sampleRate, setSampleRate] = useState(100); // Default to 100%
+  const [totalSamples, setTotalSamples] = useState(0);
+  const [selectedSample, setSelectedSample] = useState(null);
+  const [numParaphrases, setNumParaphrases] = useState(5);
+  const [paraphrases, setParaphrases] = useState([]);
+  const [paraphrasesPerSample, setParaphrasesPerSample] = useState(5);
+  const [staticColumns, setStaticColumns] = useState([]);
+  const [availableColumns, setAvailableColumns] = useState([]);
+  const [columnTypes, setColumnTypes] = useState({});
+  const [useAllSamples, setUseAllSamples] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,6 +221,19 @@ function App() {
     fetchOllamaModels();
   }, []);
 
+useEffect(() => {
+  if (availableColumns.length > 0) {
+    const initialColumnTypes = availableColumns.reduce((acc, column) => {
+      if (column === 'command_description') acc[column] = 'static';
+      else if (column === 'command') acc[column] = 'reference';
+      else acc[column] = 'dynamic';
+      return acc;
+    }, {});
+    setColumnTypes(initialColumnTypes);
+    console.log("Initialized column types:", initialColumnTypes);
+  }
+}, [availableColumns]);
+
   if (error) {
     return (
       <ThemeProvider theme={theme}>
@@ -216,6 +244,20 @@ function App() {
       </ThemeProvider>
     );
   }
+
+  const handleColumnTypeToggle = (column) => {
+    setColumnTypes(prevTypes => ({
+      ...prevTypes,
+      [column]: prevTypes[column] === 'static' ? 'dynamic' : 'static'
+    }));
+  };
+  
+  const handleColumnTypeChange = (column, newType) => {
+    setColumnTypes(prevTypes => ({
+      ...prevTypes,
+      [column]: newType
+    }));
+  };
 
   const fetchOllamaModels = async () => {
     try {
@@ -372,6 +414,16 @@ function App() {
     }
   };
 
+  const selectSample = async (filename) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/file/ingredient/${filename}`);
+      setSelectedSample(response.data.content[0]);  // Assuming the first row is selected
+    } catch (error) {
+      console.error('Error fetching sample content:', error);
+      setError('Error fetching sample content');
+    }
+  };
+
   const selectSeed = async (filename) => {
     try {
       const response = await axios.get(`http://localhost:5000/api/file/ingredient/${filename}`);
@@ -402,25 +454,51 @@ function App() {
     try {
       const response = await axios.get(`http://localhost:5000/api/file/${type}/${filename}`);
       
-      if (filename.endsWith('.parquet')) {
-        setFileType('parquet');
-        setParquetData(response.data.content);
-        setParquetColumns(response.data.columns);
-        setTotalRows(response.data.total_rows);
-        setEditorContent('');
-        setEditorMode('json');
-      } else {
+    if (filename.endsWith('.parquet')) {
+      setFileType('parquet');
+      setParquetData(response.data.content);
+      setParquetColumns(response.data.columns);
+      setTotalRows(response.data.total_rows);
+      setAvailableColumns(response.data.columns);
+      setEditorContent('');
+    } else {
         setFileType(filename.split('.').pop());
-        setEditorContent(response.data.content);
+        if (typeof response.data.content === 'string') {
+          setEditorContent(response.data.content);
+        } else {
+          setEditorContent(JSON.stringify(response.data.content, null, 2));
+        }
         setParquetData(null);
         setParquetColumns([]);
         setTotalRows(0);
-        setEditorMode(filename.endsWith('.json') ? 'json' : 'text');
+      }
+      
+      // Set editor mode based on file extension
+      if (filename.endsWith('.json')) {
+        setEditorMode('json');
+      } else if (filename.endsWith('.py')) {
+        setEditorMode('python');
+      } else if (filename.endsWith('.js')) {
+        setEditorMode('javascript');
+      } else if (filename.endsWith('.html')) {
+        setEditorMode('html');
+      } else if (filename.endsWith('.css')) {
+        setEditorMode('css');
+      } else {
+        setEditorMode('text');
       }
     } catch (error) {
       console.error('Error fetching file content:', error);
       setError('Error fetching file content');
     }
+  };
+
+  const handleColumnToggle = (column) => {
+    setStaticColumns(prev => 
+      prev.includes(column) 
+        ? prev.filter(c => c !== column) 
+        : [...prev, column]
+    );
   };
 
   const insertSymbol = (symbol) => {
@@ -476,14 +554,21 @@ function App() {
         throw new Error("Please select a file and a template");
       }
   
+      let content = editorContent;
+      if (fileType === 'txt') {
+        // For TXT files, we need to send the content as is
+        const response = await axios.get(`http://localhost:5000/api/file/${selectedFileType}/${selectedFile}`);
+        content = response.data.content;
+      }
+  
       const response = await axios.post('http://localhost:5000/api/convert_to_json', {
         filename: selectedFile,
-        content: editorContent,  // Send the current editor content
+        content: content,
         template: selectedTemplate,
         fileType: selectedFileType
       });
   
-      setOutput(`JSON file created: ${response.data.json_file}`);
+      setOutput(`JSON file created: ${response.data.json_file}, Parquet file created: ${response.data.parquet_file}`);
       fetchFiles();
     } catch (error) {
       setError(error.response?.data?.error || error.message);
@@ -558,13 +643,33 @@ function App() {
     }
   };
   
+  const generateParaphrases = async () => {
+    if (!selectedSample) {
+      setError("Please select a sample first");
+      return;
+    }
+  
+    try {
+      const response = await axios.post('http://localhost:5000/api/generate_paraphrases', {
+        sample: selectedSample,
+        num_paraphrases: numParaphrases,
+        ollama_model: selectedOllamaModel
+      });
+      
+      setParaphrases(response.data.paraphrases);
+      setOutput(`Generated ${response.data.paraphrases.length} paraphrases`);
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+    }
+  };
+
   const runAgentChef = async () => {
     try {
       setError(null);
       setOutput("Processing...");
       
-      if (!selectedFile || !selectedFile.endsWith('.parquet')) {
-        throw new Error("Please select a parquet file for generating synthetic data.");
+      if (!selectedFile) {
+        throw new Error("Please select a file for generating synthetic data.");
       }
       
       if (!selectedOllamaModel) {
@@ -574,13 +679,15 @@ function App() {
       const dataToSend = {
         mode: 'custom',
         ollamaModel: selectedOllamaModel,
-        seedParquet: selectedFile,
-        template: selectedTemplate,
-        systemPrompt: systemPrompt,  // Include the system prompt from the UI
-        numSamples: parseInt(numSamples, 10)
+        seedFile: selectedFile,
+        systemPrompt: systemPrompt,
+        sampleRate: sampleRate,
+        paraphrasesPerSample: paraphrasesPerSample,
+        columnTypes: columnTypes,  // This should now contain the correct column types
+        useAllSamples: useAllSamples
       };
   
-      console.log("Sending data to server:", dataToSend);
+      console.log("Sending data to server:", JSON.stringify(dataToSend, null, 2));
   
       const response = await axios.post('http://localhost:5000/api/run', dataToSend);
       
@@ -752,14 +859,6 @@ function App() {
               </Select>
               <TextField
                 fullWidth
-                label="Number of Samples"
-                type="number"
-                value={numSamples}
-                onChange={(e) => setNumSamples(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                fullWidth
                 multiline
                 rows={4}
                 label="System Prompt"
@@ -767,13 +866,41 @@ function App() {
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 sx={{ mb: 2 }}
               />
+              <TextField
+                fullWidth
+                label="Random Sample Rate (%)"
+                type="number"
+                value={sampleRate}
+                onChange={(e) => setSampleRate(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                inputProps={{ min: 0, max: 100 }}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Paraphrases per Sample"
+                type="number"
+                value={paraphrasesPerSample}
+                onChange={(e) => setParaphrasesPerSample(Math.max(1, parseInt(e.target.value) || 1))}
+                inputProps={{ min: 1 }}
+                sx={{ mb: 2 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useAllSamples}
+                    onChange={(e) => setUseAllSamples(e.target.checked)}
+                  />
+                }
+                label="Use All Samples (Negates Random Sample Rate)"
+                
+              />
             </Paper>
           </Grid>
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
               <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
               <Typography variant="body2" sx={{ mb: 2 }}>
-                Note: $("") groups can span multiple lines. You can include multi-line content, such as Python code, within a single $("") group.
+                Note: You can include multi-line content, such as Python code, within a single $("data/code") group split across multiple lines. Run the Parse Dataset button to have Agent Chef attempt to generate your $("data") formatting for the provided txt file and based on the selected format or format the data by hand.
               </Typography>
               <Box sx={{ mb: 2 }}>
                 <FormControlLabel
@@ -820,7 +947,7 @@ function App() {
                 <Button 
                   variant="contained" 
                   onClick={convertToJson}
-                  disabled={!selectedTemplate || !selectedFile || !(fileType === 'txt' || fileType === 'tex')}
+                  disabled={!selectedTemplate || !selectedFile || !(fileType === 'txt' || fileType === 'tex' || fileType === 'json')}
                 >
                   Convert to JSON & Parquet Seeds
                 </Button>
@@ -846,6 +973,31 @@ function App() {
                 </Box>
               )}
             </Paper>
+            </Grid>
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h5" gutterBottom>Column Selection</Typography>
+              <Typography variant="body2" gutterBottom>
+                Select the type for each column:
+                - Static: Copied directly from the original
+                - Reference: Used for augmenting dynamic columns
+                - Dynamic: Paraphrased/generated
+              </Typography>
+              {availableColumns.map((column) => (
+                <Box key={column} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Typography sx={{ minWidth: 150 }}>{column}:</Typography>
+                  <Select
+                    value={columnTypes[column] || 'dynamic'}
+                    onChange={(e) => handleColumnTypeChange(column, e.target.value)}
+                    sx={{ minWidth: 150 }}
+                  >
+                    <MenuItem value="static">Static</MenuItem>
+                    <MenuItem value="reference">Reference</MenuItem>
+                    <MenuItem value="dynamic">Dynamic</MenuItem>
+                  </Select>
+                </Box>
+              ))}
+            </Paper>
           </Grid>
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
@@ -854,7 +1006,7 @@ function App() {
                 fullWidth
                 variant="contained" 
                 onClick={runAgentChef}
-                disabled={!selectedOllamaModel || !selectedFile || !selectedFile.endsWith('.parquet')}
+                disabled={!selectedOllamaModel || !selectedFile || !(fileType === 'parquet' || fileType === 'txt' || fileType === 'json')}
                 sx={{ mb: 2 }}
               >
                 Generate Synthetic Data

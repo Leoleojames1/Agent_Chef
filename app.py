@@ -163,7 +163,9 @@ def generate_synthetic():
 def convert_to_json():
     data = request.json
     filename = data.get('filename')
+    content = data.get('content')
     template_name = data.get('template')
+    file_type = data.get('fileType')
     
     try:
         if not filename or not template_name:
@@ -173,15 +175,18 @@ def convert_to_json():
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
 
-        with open(file_path, 'r', encoding='utf-8') as f:
-            text_content = f.read()
+        # Use the content from the request if available, otherwise read from file
+        if not content:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-        # Use the Dataset_Manager to parse the text content to JSON
-        df, json_file, _ = chef.dataset_manager.parse_text_to_parquet(text_content, template_name, os.path.splitext(filename)[0])
+        # Use the Dataset_Manager to parse the content to JSON
+        df, json_file, parquet_file = chef.dataset_manager.parse_text_to_parquet(content, template_name, os.path.splitext(filename)[0])
         
         return jsonify({
-            'message': 'JSON file created successfully',
-            'json_file': os.path.basename(json_file)
+            'message': 'JSON and Parquet files created successfully',
+            'json_file': os.path.basename(json_file),
+            'parquet_file': os.path.basename(parquet_file)
         })
     except Exception as e:
         logging.exception(f"Error converting to JSON: {str(e)}")
@@ -256,6 +261,7 @@ def convert_to_json_parquet():
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json
+    logging.info(f"Received data: {json.dumps(data, indent=2)}")
     ollama_model = data.get('ollamaModel')
     
     logging.info(f"Received run request with data: {data}")
@@ -266,21 +272,23 @@ def run_agent_chef():
         
         chef.initialize(ollama_model)
         
-        seed_parquet = data.get('seedParquet')
-        if not seed_parquet:
-            raise ValueError("Seed parquet file not specified")
+        seed_file = data.get('seedFile')
+        if not seed_file:
+            raise ValueError("Seed file not specified")
         
-        # Ensure the seed_parquet file exists
-        seed_parquet_path = os.path.join(chef.input_dir, seed_parquet)
-        if not os.path.exists(seed_parquet_path):
-            raise ValueError(f"Seed parquet file not found: {seed_parquet_path}")
+        # Ensure the seed file exists
+        seed_file_path = os.path.join(chef.input_dir, seed_file)
+        if not os.path.exists(seed_file_path):
+            raise ValueError(f"Seed file not found: {seed_file_path}")
         
         result = chef.run(
-            mode=data['mode'],
-            seed_parquet=seed_parquet,
-            template=data.get('template'),
-            system_prompt=data.get('systemPrompt'),  # Pass the system prompt
-            num_samples=int(data.get('numSamples', 100))
+            mode='custom',
+            seed_file=seed_file,
+            systemPrompt=data.get('systemPrompt'),
+            sampleRate=data.get('sampleRate', 100),
+            paraphrasesPerSample=data.get('paraphrasesPerSample', 1),
+            columnTypes=data.get('columnTypes', {}),  # Pass column types to chef.run
+            useAllSamples=data.get('useAllSamples', True)
         )
         
         if 'error' in result:
@@ -294,6 +302,20 @@ def run_agent_chef():
         error_msg = f"Error in run_agent_chef: {str(e)}"
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
+    
+@app.route('/api/generate_paraphrases', methods=['POST'])
+def generate_paraphrases():
+    data = request.json
+    sample = data['sample']
+    num_paraphrases = data['num_paraphrases']
+    ollama_model = data['ollama_model']
+    
+    try:
+        chef.initialize(ollama_model)
+        paraphrases = chef.dataset_manager.enhanced_generator.generate_paraphrases(sample, num_paraphrases)
+        return jsonify({'paraphrases': paraphrases})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
     
 @app.route('/api/ollama-models', methods=['GET'])
 def get_ollama_models():

@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import traceback 
 from cutlery.DatasetKitchen import DatasetManager, TemplateManager
 from cutlery.OllamaInterface import OllamaInterface
 from cutlery.FileHandler import FileHandler
@@ -31,41 +32,54 @@ class AgentChef:
     def initialize(self, model):
         self.ollama_interface.set_model(model)
 
-    def run(self, mode, seed_parquet, **kwargs):
-        logging.info(f"Running AgentChef with mode: {mode}, seed_parquet: {seed_parquet}")
+    def run(self, mode, seed_file, **kwargs):
+        logging.info(f"Running AgentChef with mode: {mode}, seed_file: {seed_file}")
 
-        if not seed_parquet:
-            return {'error': "No seed parquet file specified"}
+        if not seed_file:
+            return {'error': "No seed file specified"}
 
         try:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            base_filename = os.path.splitext(os.path.basename(seed_parquet))[0]
-            seed_parquet_path = os.path.join(self.input_dir, seed_parquet)
-
-            if not os.path.exists(seed_parquet_path):
-                return {'error': f"Seed parquet file not found: {seed_parquet_path}"}
-
             if mode == 'custom':
-                system_prompt = kwargs.get('system_prompt')
+                system_prompt = kwargs.get('systemPrompt')
                 if not system_prompt:
                     return {'error': "System prompt is required for custom mode"}
 
-                dataset = self.dataset_manager.generate_synthetic_data(
-                    seed_parquet_path,
-                    num_samples=kwargs.get('num_samples', 100),
-                    system_prompt=system_prompt,
-                    template=kwargs.get('template')
+                sample_rate = kwargs.get('sampleRate', 100)
+                paraphrases_per_sample = kwargs.get('paraphrasesPerSample', 1)
+                column_types = kwargs.get('columnTypes', {})
+                use_all_samples = kwargs.get('useAllSamples', True)
+
+                seed_file_path = os.path.join(self.input_dir, seed_file)
+                if not os.path.exists(seed_file_path):
+                    return {'error': f"Seed file not found: {seed_file_path}"}
+
+                result_df = self.dataset_manager.generate_synthetic_data(
+                    seed_file,
+                    sample_rate=sample_rate,
+                    paraphrases_per_sample=paraphrases_per_sample,
+                    column_types=column_types,
+                    use_all_samples=use_all_samples,
+                    system_prompt=system_prompt
                 )
-                if dataset.empty:
-                    return {'error': "Failed to generate synthetic data. Check the logs for details."}
-                output_file = os.path.join(self.output_dir, f'{base_filename}_synthetic_{timestamp}.parquet')
-                self.file_handler.save_to_parquet(dataset, output_file)
-                return {'message': "Custom synthetic dataset generated successfully", 'file': os.path.basename(output_file)}
-            
+
+                if result_df.empty:
+                    return {'error': "Generated dataset is empty. Check the logs for details."}
+
+                # Generate output filename based on input filename
+                input_name = os.path.splitext(seed_file)[0]
+                timestamp = int(time.time())
+                output_filename = f'{input_name}_synthetic_{timestamp}.parquet'
+                output_file = os.path.join(self.output_dir, output_filename)
+                result_df.to_parquet(output_file)
+
+                return {
+                    'message': "Custom synthetic dataset generated successfully",
+                    'file': output_filename
+                }
             else:
                 return {'error': "Invalid mode selected"}
 
         except Exception as e:
-            error_msg = f"Error in AgentChef.run: {str(e)}"
+            error_msg = f"Error in AgentChef.run: {str(e)}\n{traceback.format_exc()}"
             logging.exception(error_msg)
             return {'error': error_msg}
