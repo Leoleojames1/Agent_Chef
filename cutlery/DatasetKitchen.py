@@ -30,7 +30,7 @@ class EnhancedDatasetGenerator:
         Reference values: {reference_values}
         
         Please maintain all of the details of the description given, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the paraphrased text is coherent and contextually relevant. Provide only the paraphrased text without any additional explanations or formatting.
-        Please Do maintain the structure of the sentence, if the sentence is a question the generated paraphrase should be a similarly asked question with the question mark, if the sentence is a statement, the paraphrase maintain its meaning should be a similary stated statement with a period.
+        Please Do maintain the structure of the sentence, if the sentence is a question the generated paraphrase should be a similarly asked question with the question mark, if the sentence is a statement, the paraphrase maintain its meaning should be a similary stated statement with a period. DO NOT COPY OUTPUT.
         """
 
         response = self.ollama_interface.chat(messages=[
@@ -56,7 +56,8 @@ class EnhancedDatasetGenerator:
         Reference values: {reference}
         Is question: {is_question}
         
-        Verify that the paraphrased content maintains the original meaning, format (question or statement), and correctly incorporates the reference values. If it does, return the paraphrased content. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values. Do not include any explanatory text or meta-information in your response."""
+        Verify that the paraphrased content maintains the original meaning, format (question or statement), and correctly incorporates the reference values. If it does, return the paraphrased content. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values.
+        Do not include create any explanatory text or meta-information in your response, instead just utilize the existing meaning."""
 
         response = self.ollama_interface.chat(messages=[
             {'role': 'system', 'content': system_prompt},
