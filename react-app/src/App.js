@@ -100,9 +100,31 @@ const ActionButton = styled(Button)(({ theme }) => ({
   margin: theme.spacing(1),
 }));
 
-function ParquetViewer({ data, columns, totalRows }) {
+function ParquetViewer({ data, columns, totalRows, filename }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [pageData, setPageData] = useState([]);
+
+  useEffect(() => {
+    const fetchPageData = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/parquet_data', {
+          params: {
+            filename: filename,
+            page: page,
+            rows_per_page: rowsPerPage
+          }
+        });
+        setPageData(response.data.content);
+      } catch (error) {
+        console.error('Error fetching parquet data:', error);
+      }
+    };
+
+    if (filename) {
+      fetchPageData();
+    }
+  }, [filename, page, rowsPerPage]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -115,6 +137,9 @@ function ParquetViewer({ data, columns, totalRows }) {
 
   return (
     <>
+      <Typography variant="body2" gutterBottom>
+        Showing rows {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, totalRows)} out of {totalRows} total rows
+      </Typography>
       <TableContainer component={Paper} sx={{ maxHeight: '50vh' }}>
         <Table stickyHeader aria-label="parquet data table">
           <TableHead>
@@ -125,7 +150,7 @@ function ParquetViewer({ data, columns, totalRows }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, index) => (
+            {pageData.map((row, index) => (
               <TableRow key={index}>
                 {columns.map((column) => (
                   <TableCell key={column}>{row[column]}</TableCell>
@@ -136,7 +161,7 @@ function ParquetViewer({ data, columns, totalRows }) {
         </Table>
       </TableContainer>
       <TablePagination
-        rowsPerPageOptions={[10, 25, 100]}
+        rowsPerPageOptions={[10, 25, 100, 500]}
         component="div"
         count={totalRows}
         rowsPerPage={rowsPerPage}
@@ -472,14 +497,17 @@ useEffect(() => {
     try {
       const response = await axios.get(`http://localhost:5000/api/file/${type}/${filename}`);
       
-    if (filename.endsWith('.parquet')) {
-      setFileType('parquet');
-      setParquetData(response.data.content);
-      setParquetColumns(response.data.columns);
-      setTotalRows(response.data.total_rows);
-      setAvailableColumns(response.data.columns);
-      setEditorContent('');
-    } else {
+      if (filename.endsWith('.parquet')) {
+        setFileType('parquet');
+        setParquetData({
+          content: response.data.content,
+          filename: filename
+        });
+        setParquetColumns(response.data.columns);
+        setTotalRows(response.data.total_rows);
+        setAvailableColumns(response.data.columns);
+        setEditorContent('');
+      } else {
         setFileType(filename.split('.').pop());
         if (typeof response.data.content === 'string') {
           setEditorContent(response.data.content);
@@ -702,12 +730,12 @@ useEffect(() => {
         mode: 'custom',
         ollamaModel: selectedOllamaModel,
         seedFile: selectedFile,
-        systemPrompt: systemPrompt,  // This is the top-level system prompt
+        systemPrompt: customPrompts.system,  // Use the system prompt from CustomPromptEditor
         sampleRate: sampleRate,
         paraphrasesPerSample: paraphrasesPerSample,
         columnTypes: columnTypes,
         useAllSamples: useAllSamples,
-        customPrompts: customPrompts  // This includes the prompts from CustomPromptEditor
+        customPrompts: customPrompts
       };
   
       console.log("Sending data to server:", JSON.stringify(dataToSend, null, 2));
@@ -852,7 +880,7 @@ useEffect(() => {
             )}
         </Box>
       </Drawer>
-      <MainContent>
+    <MainContent>
         <Toolbar />
         <Grid container spacing={2}>
           <Grid item xs={12}>
@@ -881,44 +909,34 @@ useEffect(() => {
                 {renderTemplateOptions()}
               </Select>
               <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Top-level System Prompt"
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                fullWidth
-                label="Random Sample Rate (%)"
-                type="number"
-                value={sampleRate}
-                onChange={(e) => setSampleRate(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                inputProps={{ min: 0, max: 100 }}
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                fullWidth
-                label="Paraphrases per Sample"
-                type="number"
-                value={paraphrasesPerSample}
-                onChange={(e) => setParaphrasesPerSample(Math.max(1, parseInt(e.target.value) || 1))}
-                inputProps={{ min: 1 }}
-                sx={{ mb: 2 }}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={useAllSamples}
-                    onChange={(e) => setUseAllSamples(e.target.checked)}
-                  />
-                }
-                label="Use All Samples (Negates Random Sample Rate)"
-                
-              />
-            </Paper>
-          </Grid>
+                  fullWidth
+                  label="Random Sample Rate (%)"
+                  type="number"
+                  value={sampleRate}
+                  onChange={(e) => setSampleRate(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  inputProps={{ min: 0, max: 100 }}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Paraphrases per Sample"
+                  type="number"
+                  value={paraphrasesPerSample}
+                  onChange={(e) => setParaphrasesPerSample(Math.max(1, parseInt(e.target.value) || 1))}
+                  inputProps={{ min: 1 }}
+                  sx={{ mb: 2 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useAllSamples}
+                      onChange={(e) => setUseAllSamples(e.target.checked)}
+                    />
+                  }
+                  label="Use All Samples (Negates Random Sample Rate)"
+                />
+              </Paper>
+            </Grid>
           <Grid item xs={12}>
             <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
               <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
@@ -944,7 +962,12 @@ useEffect(() => {
                 sx={{ mb: 2 }}
               />
               {fileType === 'parquet' ? (
-                <ParquetViewer data={parquetData} columns={parquetColumns} totalRows={totalRows} />
+                <ParquetViewer 
+                  data={parquetData} 
+                  columns={parquetColumns} 
+                  totalRows={totalRows} 
+                  filename={selectedFile}
+                />
               ) : (
                 <AceEditor
                   ref={aceEditorRef}

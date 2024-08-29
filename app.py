@@ -4,34 +4,98 @@ import os
 import json
 import pandas as pd
 import logging
-from AgentChef import AgentChef
-from cutlery.DatasetKitchen import TemplateManager
+from cutlery.DatasetKitchen import DatasetManager, TemplateManager
 from cutlery.OllamaInterface import OllamaInterface
-from datetime import datetime
+from cutlery.FileHandler import FileHandler
 import traceback
 import time
+from colorama import init, Fore, Back, Style
+from datetime import datetime
+init(autoreset=True)
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Agent_Chef, TemplateManager, and OllamaInterface
 base_dir = os.path.join(os.path.dirname(__file__), 'agent_chef_data')
-chef = AgentChef(base_dir)
-template_manager = TemplateManager(chef.input_dir)
-ollama_interface = OllamaInterface(None)  # Initialize with no specific model
+input_dir = os.path.join(base_dir, "ingredients")
+output_dir = os.path.join(base_dir, "dishes")
+latex_library_dir = os.path.join(base_dir, "latex_library")
+construction_zone_dir = os.path.join(base_dir, "construction_zone")
 
-# Define CUSTOM_PROMPTS_DIR
+ollama_interface = OllamaInterface(None)
+file_handler = FileHandler(input_dir, output_dir)
+template_manager = TemplateManager(input_dir)
+dataset_manager = DatasetManager(ollama_interface, template_manager, input_dir, output_dir)
+
 CUSTOM_PROMPTS_DIR = os.path.join(base_dir, 'custom_prompts')
 os.makedirs(CUSTOM_PROMPTS_DIR, exist_ok=True)
 
+def initialize(model):
+    ollama_interface.set_model(model)
+
+def run(mode, seed_file, **kwargs):
+    print(f"{Fore.CYAN}Running with mode: {mode}, seed_file: {seed_file}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}Custom prompts: {kwargs.get('custom_prompts', {})}{Style.RESET_ALL}")
+
+    if not seed_file:
+        return {'error': "No seed file specified"}
+
+    try:
+        if mode == 'custom':
+            sample_rate = kwargs.get('sample_rate', 100)
+            paraphrases_per_sample = kwargs.get('paraphrases_per_sample', 1)
+            column_types = kwargs.get('column_types', {})
+            use_all_samples = kwargs.get('use_all_samples', True)
+            custom_prompts = kwargs.get('custom_prompts', {})
+
+            seed_file_path = os.path.join(input_dir, seed_file)
+            if not os.path.exists(seed_file_path):
+                print(f"{Fore.RED}Seed file not found: {seed_file_path}{Style.RESET_ALL}")
+                return {'error': f"Seed file not found: {seed_file_path}"}
+
+            print(f"{Fore.GREEN}Generating synthetic data...{Style.RESET_ALL}")
+            result_df = dataset_manager.generate_synthetic_data(
+                seed_file,
+                sample_rate=sample_rate,
+                paraphrases_per_sample=paraphrases_per_sample,
+                column_types=column_types,
+                use_all_samples=use_all_samples,
+                custom_prompts=custom_prompts
+            )
+
+            if result_df.empty:
+                print(f"{Fore.RED}Generated dataset is empty. Check the logs for details.{Style.RESET_ALL}")
+                return {'error': "Generated dataset is empty. Check the logs for details."}
+
+            # Generate output filename based on input filename
+            input_name = os.path.splitext(seed_file)[0]
+            timestamp = int(time.time())
+            output_filename = f'{input_name}_synthetic_{timestamp}.parquet'
+            output_file = os.path.join(output_dir, output_filename)
+            result_df.to_parquet(output_file)
+
+            print(f"{Fore.GREEN}Custom synthetic dataset generated successfully{Style.RESET_ALL}")
+            return {
+                'message': "Custom synthetic dataset generated successfully",
+                'file': output_filename
+            }
+        else:
+            print(f"{Fore.RED}Invalid mode selected{Style.RESET_ALL}")
+            return {'error': "Invalid mode selected"}
+
+    except Exception as e:
+        error_msg = f"Error in run: {str(e)}\n{traceback.format_exc()}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return {'error': error_msg}
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
-    ingredient_files = [f for f in os.listdir(chef.input_dir) if f.endswith(('.json', '.parquet', '.txt', '.tex'))]
-    dish_files = [f for f in os.listdir(chef.output_dir) if f.endswith('.parquet')]
-    construction_files = [f for f in os.listdir(chef.construction_zone_dir) if f.endswith('.txt')]
-    latex_files = [f for f in os.listdir(chef.latex_library_dir) if f.endswith('.tex')]
+    ingredient_files = [f for f in os.listdir(input_dir) if f.endswith(('.json', '.parquet', '.txt', '.tex'))]
+    dish_files = [f for f in os.listdir(output_dir) if f.endswith('.parquet')]
+    construction_files = [f for f in os.listdir(construction_zone_dir) if f.endswith('.txt')]
+    latex_files = [f for f in os.listdir(latex_library_dir) if f.endswith('.tex')]
     return jsonify({
         "ingredient_files": ingredient_files,
         "dish_files": dish_files,
@@ -39,14 +103,39 @@ def get_files():
         "latex_files": latex_files
     })
 
+@app.route('/api/parquet_data', methods=['GET'])
+def get_parquet_data():
+    filename = request.args.get('filename')
+    page = int(request.args.get('page', 0))
+    rows_per_page = int(request.args.get('rows_per_page', 10))
+
+    if not filename:
+        return jsonify({"error": "Filename is required"}), 400
+
+    # Check both input_dir and output_dir for the file
+    file_path = os.path.join(input_dir, filename)
+    if not os.path.exists(file_path):
+        file_path = os.path.join(output_dir, filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": f"File not found: {filename}"}), 404
+
+    try:
+        df = pd.read_parquet(file_path)
+        start = page * rows_per_page
+        end = min(start + rows_per_page, len(df))
+        page_data = df.iloc[start:end].to_dict('records')
+        return jsonify({"content": page_data, "total_rows": len(df)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 @app.route('/api/file/<type>/<filename>', methods=['GET'])
 def get_file_content(type, filename):
     if type == 'ingredient':
-        file_path = os.path.join(chef.input_dir, filename)
+        file_path = os.path.join(input_dir, filename)
     elif type == 'dish':
-        file_path = os.path.join(chef.output_dir, filename)
+        file_path = os.path.join(output_dir, filename)
     elif type == 'latex':
-        file_path = os.path.join(chef.latex_library_dir, filename)
+        file_path = os.path.join(latex_library_dir, filename)
     else:
         return jsonify({"error": "Invalid file type"}), 400
     
@@ -80,7 +169,7 @@ def save_file():
         # Always save as txt file
         base_filename = os.path.splitext(filename)[0]
         txt_filename = f"{base_filename}.txt"
-        file_path = os.path.join(chef.input_dir, txt_filename)
+        file_path = os.path.join(input_dir, txt_filename)
         
         with open(file_path, 'w', encoding='utf-8', newline='') as f:
             f.write(content)
@@ -141,6 +230,57 @@ def save_template():
     except Exception as e:
         return jsonify({'error': f'Failed to save template: {str(e)}'}), 500
 
+@app.route('/api/run', methods=['POST'])
+def run_agent_chef():
+    data = request.json
+    print(f"{Fore.CYAN}Received data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    ollama_model = data.get('ollamaModel')
+    
+    try:
+        if not ollama_model:
+            print(f"{Fore.RED}Ollama model not specified{Style.RESET_ALL}")
+            raise ValueError("Ollama model not specified")
+        
+        print(f"{Fore.GREEN}Initializing Ollama model: {ollama_model}{Style.RESET_ALL}")
+        initialize(ollama_model)
+        
+        seed_file = data.get('seedFile')
+        if not seed_file:
+            print(f"{Fore.RED}Seed file not specified{Style.RESET_ALL}")
+            raise ValueError("Seed file not specified")
+        
+        # Ensure the seed file exists
+        seed_file_path = os.path.join(input_dir, seed_file)
+        if not os.path.exists(seed_file_path):
+            print(f"{Fore.RED}Seed file not found: {seed_file_path}{Style.RESET_ALL}")
+            raise ValueError(f"Seed file not found: {seed_file_path}")
+        
+        print(f"{Fore.GREEN}Running with seed file: {seed_file}{Style.RESET_ALL}")
+        result = run(
+            mode='custom',
+            seed_file=seed_file,
+            sample_rate=data.get('sampleRate', 100),
+            paraphrases_per_sample=data.get('paraphrasesPerSample', 1),
+            column_types=data.get('columnTypes', {}),
+            use_all_samples=data.get('useAllSamples', True),
+            custom_prompts=data.get('customPrompts', {})
+        )
+        
+        if 'error' in result:
+            print(f"{Fore.RED}Error: {result['error']}{Style.RESET_ALL}")
+            return jsonify({'error': result['error']}), 400
+        else:
+            print(f"{Fore.GREEN}Success: {result['message']}{Style.RESET_ALL}")
+            return jsonify({
+                'message': result['message'],
+                'filename': result['file']
+            })
+    except Exception as e:
+        error_msg = f"Error in run_agent_chef: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
 @app.route('/api/generate_synthetic', methods=['POST'])
 def generate_synthetic():
     data = request.json
@@ -150,12 +290,13 @@ def generate_synthetic():
     system_prompt = data['system_prompt']
     
     try:
-        chef.initialize(ollama_model)
-        result = chef.run(
+        initialize(ollama_model)
+        result = run(
             mode='custom',
-            seed_parquet=seed_parquet,
-            num_samples=num_samples,
-            system_prompt=system_prompt
+            seed_file=seed_parquet,
+            sample_rate=100,
+            paraphrases_per_sample=num_samples,
+            custom_prompts={'system': system_prompt}
         )
         
         if 'error' in result:
@@ -177,7 +318,7 @@ def convert_to_json():
         if not filename or not template_name:
             return jsonify({'error': 'Filename and template name are required'}), 400
 
-        file_path = os.path.join(chef.input_dir, filename)
+        file_path = os.path.join(input_dir, filename)
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
 
@@ -187,7 +328,7 @@ def convert_to_json():
                 content = f.read()
 
         # Use the Dataset_Manager to parse the content to JSON
-        df, json_file, parquet_file = chef.dataset_manager.parse_text_to_parquet(content, template_name, os.path.splitext(filename)[0])
+        df, json_file, parquet_file = dataset_manager.parse_text_to_parquet(content, template_name, os.path.splitext(filename)[0])
         
         return jsonify({
             'message': 'JSON and Parquet files created successfully',
@@ -209,16 +350,16 @@ def parse_dataset():
         if not content or not template_name:
             return jsonify({'error': 'Content and template name are required'}), 400
 
-        df = chef.dataset_manager.parse_dataset(content, template_name, mode)
+        df = dataset_manager.parse_dataset(content, template_name, mode)
         
         # Save as JSON
         json_filename = f"parsed_dataset_{int(time.time())}.json"
-        json_file = os.path.join(chef.input_dir, json_filename)
+        json_file = os.path.join(input_dir, json_filename)
         df.to_json(json_file, orient='records', indent=2)
 
         # Save as Parquet
         parquet_filename = f"parsed_dataset_{int(time.time())}.parquet"
-        parquet_file = os.path.join(chef.input_dir, parquet_filename)
+        parquet_file = os.path.join(input_dir, parquet_filename)
         df.to_parquet(parquet_file, engine='pyarrow')
 
         return jsonify({
@@ -238,7 +379,7 @@ def convert_to_json_parquet():
     filename = data['filename']
     
     try:
-        json_file_path = os.path.join(chef.input_dir, filename)
+        json_file_path = os.path.join(input_dir, filename)
         if not os.path.exists(json_file_path):
             return jsonify({'error': 'JSON file not found'}), 404
 
@@ -253,7 +394,7 @@ def convert_to_json_parquet():
         base_filename = os.path.splitext(filename)[0]
         
         # Save as Parquet
-        parquet_file = os.path.join(chef.input_dir, f"{base_filename}.parquet")
+        parquet_file = os.path.join(input_dir, f"{base_filename}.parquet")
         df.to_parquet(parquet_file, engine='pyarrow')
         
         return jsonify({
@@ -264,52 +405,6 @@ def convert_to_json_parquet():
         logging.exception(f"Error converting to Parquet: {str(e)}")
         return jsonify({'error': str(e)}), 400
     
-@app.route('/api/run', methods=['POST'])
-def run_agent_chef():
-    data = request.json
-    logging.info(f"Received data: {json.dumps(data, indent=2)}")
-    ollama_model = data.get('ollamaModel')
-    
-    logging.info(f"Received run request with data: {data}")
-    
-    try:
-        if not ollama_model:
-            raise ValueError("Ollama model not specified")
-        
-        chef.initialize(ollama_model)
-        
-        seed_file = data.get('seedFile')
-        if not seed_file:
-            raise ValueError("Seed file not specified")
-        
-        # Ensure the seed file exists
-        seed_file_path = os.path.join(chef.input_dir, seed_file)
-        if not os.path.exists(seed_file_path):
-            raise ValueError(f"Seed file not found: {seed_file_path}")
-        
-        result = chef.run(
-            mode='custom',
-            seed_file=seed_file,
-            system_prompt=data.get('systemPrompt'),  # Changed from topLevelSystemPrompt to system_prompt
-            sample_rate=data.get('sampleRate', 100),
-            paraphrases_per_sample=data.get('paraphrasesPerSample', 1),
-            column_types=data.get('columnTypes', {}),
-            use_all_samples=data.get('useAllSamples', True),
-            custom_prompts=data.get('customPrompts', {})
-        )
-        
-        if 'error' in result:
-            return jsonify({'error': result['error']}), 400
-        else:
-            return jsonify({
-                'message': result['message'],
-                'filename': result['file']
-            })
-    except Exception as e:
-        error_msg = f"Error in run_agent_chef: {str(e)}"
-        logging.exception(error_msg)
-        return jsonify({"error": error_msg}), 500
-    
 @app.route('/api/generate_paraphrases', methods=['POST'])
 def generate_paraphrases():
     data = request.json
@@ -318,8 +413,8 @@ def generate_paraphrases():
     ollama_model = data['ollama_model']
     
     try:
-        chef.initialize(ollama_model)
-        paraphrases = chef.dataset_manager.enhanced_generator.generate_paraphrases(sample, num_paraphrases)
+        initialize(ollama_model)
+        paraphrases = dataset_manager.enhanced_generator.generate_paraphrases(sample, num_paraphrases)
         return jsonify({'paraphrases': paraphrases})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -336,8 +431,8 @@ def get_ollama_models():
 @app.route('/api/seeds', methods=['GET'])
 def get_seeds():
     try:
-        seed_files = [f for f in os.listdir(chef.input_dir) if f.endswith(('.json', '.parquet'))]
-        seed_files.sort(key=lambda x: os.path.getmtime(os.path.join(chef.input_dir, x)), reverse=True)
+        seed_files = [f for f in os.listdir(input_dir) if f.endswith(('.json', '.parquet'))]
+        seed_files.sort(key=lambda x: os.path.getmtime(os.path.join(input_dir, x)), reverse=True)
         
         if not seed_files:
             return jsonify({"seeds": [], "message": "No seed files found"}), 200
@@ -377,25 +472,28 @@ def combine_files():
                 file_type = file['type']
                 
                 if file_type == 'ingredient':
-                    file_path = os.path.join(chef.input_dir, file_name)
+                    file_path = os.path.join(input_dir, file_name)
                 elif file_type == 'dish':
-                    file_path = os.path.join(chef.output_dir, file_name)
+                    file_path = os.path.join(output_dir, file_name)
                 else:
                     return jsonify({'error': f'Invalid file type: {file_type}'}), 400
                 
                 df = pd.read_parquet(file_path)
+                print(f"{Fore.CYAN}Read file: {file_name}, Shape: {df.shape}{Style.RESET_ALL}")
                 dfs.append(df)
             
             combined_df = pd.concat(dfs, ignore_index=True)
+            print(f"{Fore.GREEN}Combined DataFrame Shape: {combined_df.shape}{Style.RESET_ALL}")
             
             # Create a unique name for the combined file
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             file_types = '_'.join(sorted(set([f['type'] for f in files])))
             output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
-            output_file = os.path.join(chef.input_dir, output_filename)
+            output_file = os.path.join(input_dir, output_filename)
             
             # Save the combined data
             combined_df.to_parquet(output_file, engine='pyarrow')
+            print(f"{Fore.GREEN}Saved combined file: {output_file}{Style.RESET_ALL}")
         else:
             # Handling for text-based files (txt, json, tex)
             combined_data = []
@@ -404,15 +502,16 @@ def combine_files():
                 file_type = file['type']
                 
                 if file_type == 'ingredient':
-                    file_path = os.path.join(chef.input_dir, file_name)
+                    file_path = os.path.join(input_dir, file_name)
                 elif file_type == 'dish':
-                    file_path = os.path.join(chef.output_dir, file_name)
+                    file_path = os.path.join(output_dir, file_name)
                 else:
                     return jsonify({'error': f'Invalid file type: {file_type}'}), 400
                 
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                     combined_data.append(content)
+                print(f"{Fore.CYAN}Read file: {file_name}, Length: {len(content)}{Style.RESET_ALL}")
             
             # Combine the data
             combined_content = '\n\n'.join(combined_data)
@@ -421,19 +520,22 @@ def combine_files():
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             file_types = '_'.join(sorted(set([f['type'] for f in files])))
             output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
-            output_file = os.path.join(chef.input_dir, output_filename)
+            output_file = os.path.join(input_dir, output_filename)
             
             # Save the combined data
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(combined_content)
+            print(f"{Fore.GREEN}Saved combined file: {output_file}{Style.RESET_ALL}")
         
         return jsonify({
             'message': 'Files combined successfully',
             'combined_file': output_filename
         })
     except Exception as e:
-        logging.exception(f"Error combining files: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        error_msg = f"Error combining files: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({'error': error_msg}), 500
     
 @app.route('/api/save_prompt_set', methods=['POST'])
 def save_prompt_set():

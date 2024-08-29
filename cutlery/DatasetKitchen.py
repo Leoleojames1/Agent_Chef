@@ -10,6 +10,9 @@ from colorama import Fore
 import time
 import re
 import random
+from colorama import Fore, Style
+from colorama import init
+init(autoreset=True)
 
 class PromptManager:
     def __init__(self):
@@ -54,34 +57,67 @@ class EnhancedDatasetGenerator:
         self.template_manager = template_manager
         self.prompt_manager = PromptManager()
 
-    def generate_content(self, column, text, row, column_types, custom_prompts, top_level_system_prompt):
+    def generate_content(self, column, text, row, column_types, custom_prompts):
+        print(f"{Fore.CYAN}Generating content for column: {column}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Custom prompts: {json.dumps(custom_prompts, indent=2)}{Style.RESET_ALL}")
+
         reference_values = {col: row[col] for col, col_type in column_types.items() if col_type == 'reference'}
         is_question = self.is_question(text)
 
-        column_specific_prompt = custom_prompts.get('dynamicColumns', {}).get(column, {}).get('system', '')
-        column_specific_user_prompt = custom_prompts.get('dynamicColumns', {}).get(column, {}).get('user', '')
+        system_prompt = custom_prompts.get('system') or self.prompt_manager.get_prompt('system')
+        column_prompts = custom_prompts.get('dynamicColumns', {}).get(column, {})
+        user_prompt = column_prompts.get('user') or self.prompt_manager.get_prompt('dynamicColumns', 'user', column)
 
-        system_prompt = f"{top_level_system_prompt}\n\n{column_specific_prompt}"
+        print(f"{Fore.MAGENTA}System prompt: {system_prompt}{Style.RESET_ALL}")
+        print(f"{Fore.MAGENTA}User prompt: {user_prompt}{Style.RESET_ALL}")
 
-        user_prompt = f"""
-        {column_specific_user_prompt}
+        if not user_prompt:
+            if column == 'input':
+                user_prompt = """
+                Original text: {text}
+                Reference values: {reference_values}
+                Is question: {is_question}
 
-        Original text: {text}
-        Reference values: {reference_values}
-        Is question: {is_question}
+                Generate a rephrased input question that maintains the original meaning and incorporates the reference values. If the original is not a question, convert it into one. Ensure the question starts with an appropriate question word (What, When, Where, Who, Why, How, Can, Could, Would, Should, Is, Are, Do, Does) and ends with a question mark. Do not provide any explanations or additional information.
+                """
+            elif column == 'output':
+                user_prompt = """
+                Original text: {text}
+                Reference values: {reference_values}
+                Is question: {is_question}
 
-        Please generate a suitable response for the '{column}' column, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the response is coherent and contextually relevant. If the original is a question, the output should be a question. If the original is a statement, the output should be a statement.
-        """
+                Generate a rephrased output statement that maintains the original meaning and incorporates the reference values. If the original is a question, convert it into a statement. Ensure the statement is clear, concise, and ends with a period. Do not provide any explanations or additional information.
+                """
+            else:
+                user_prompt = """
+                Original text: {text}
+                Reference values: {reference_values}
+                Is question: {is_question}
+
+                Generate a suitable response for the '{column}' column, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the response is coherent and contextually relevant.
+                """
+
+        formatted_user_prompt = user_prompt.format(
+            text=text,
+            reference_values=reference_values,
+            is_question=is_question,
+            column=column
+        )
+
+        print(f"{Fore.BLUE}Formatted user prompt: {formatted_user_prompt}{Style.RESET_ALL}")
 
         response = self.ollama_interface.chat(messages=[
             {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
+            {'role': 'user', 'content': formatted_user_prompt}
         ])
         
         generated_content = response['message']['content'].strip()
-        verified_content = self.verify_content(column, original=text, generated=generated_content, reference=reference_values, is_question=is_question, top_level_system_prompt=top_level_system_prompt)
-        
-        return verified_content
+        print(f"{Fore.GREEN}Generated content: {generated_content}{Style.RESET_ALL}")
+
+        cleaned_content = self.clean_generated_content(generated_content, is_question)
+        print(f"{Fore.LIGHTGREEN_EX}Cleaned content: {cleaned_content}{Style.RESET_ALL}")
+
+        return cleaned_content
         
     def generate_paraphrase(self, text, row, column_types):
         reference_values = {col: row[col] for col, col_type in column_types.items() if col_type == 'reference'}
@@ -115,6 +151,32 @@ class EnhancedDatasetGenerator:
         verified = self.verify_paraphrase(original=text, paraphrased=paraphrased, reference=reference_values, is_question=is_question)
         return verified
 
+    def clean_generated_content(self, text, is_question):
+        # Remove any explanatory phrases or meta-information
+        text = re.sub(r'^(Generated content:|Verified content:|Corrected version:)\s*', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'\s*(Verification result:.*|Reference Command:.*|Note:.*|Verified Response:.*)$', '', text, flags=re.IGNORECASE)
+        
+        # Remove any remaining placeholder-like patterns
+        text = re.sub(r'___[A-Za-z_]+___', '', text)
+        
+        # Remove any quotes that might have been added
+        text = text.strip('"\'')
+        
+        # Remove any leading/trailing whitespace
+        text = text.strip()
+        
+        # Ensure the text starts with a capital letter
+        if text and text[0].islower():
+            text = text[0].upper() + text[1:]
+        
+        # Ensure the text ends with proper punctuation
+        if is_question and not text.endswith('?'):
+            text += '?'
+        elif not is_question and not text[-1] in '.!?':
+            text += '.'
+        
+        return text
+    
     def verify_paraphrase(self, original, paraphrased, reference, is_question):
         system_prompt = """You are a verification assistant for Agent Chef a dataset constructor tool. Your task is to ensure that the paraphrased content maintains the original meaning, format (question or statement), and incorporates the reference values correctly. If the paraphrase is accurate, return it as-is. If not, provide a corrected version."""
         
@@ -139,20 +201,31 @@ class EnhancedDatasetGenerator:
         
         return verified_text
 
-    def verify_content(self, column, original, generated, reference, is_question, top_level_system_prompt):
-        user_prompt = f"""
-        Column: {column}
-        Original: {original}
-        Generated: {generated}
-        Reference values: {reference}
-        Is question: {is_question}
+    def verify_content(self, column, original, generated, reference, is_question, custom_prompts):
+        verify_prompts = custom_prompts.get('verify', {})
+        system_prompt = verify_prompts.get('system', '')
+        user_prompt = verify_prompts.get('user', '')
 
-        Verify that the generated content for the '{column}' column maintains the original meaning, format, and correctly incorporates the reference values. If it does, return the generated content exactly as is. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values. Do not include any explanations or meta-information in your response.
-        """
+        if not user_prompt:
+            user_prompt = """
+            Original: {original}
+            Generated: {generated}
+            Reference values: {reference}
+            Is question: {is_question}
+
+            Verify that the generated content maintains the original meaning, format, and correctly incorporates the reference values. If it does, return the generated content. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values. Do not include any explanations or meta-information in your response.
+            """
+
+        formatted_user_prompt = user_prompt.format(
+            original=original,
+            generated=generated,
+            reference=reference,
+            is_question=is_question
+        )
 
         response = self.ollama_interface.chat(messages=[
-            {'role': 'system', 'content': top_level_system_prompt},
-            {'role': 'user', 'content': user_prompt}
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': formatted_user_prompt}
         ])
         
         verified_text = response['message']['content'].strip()
@@ -165,7 +238,7 @@ class EnhancedDatasetGenerator:
         
         return verified_text
 
-    def generate_enhanced_synthetic_data(self, seed_data, num_samples, column_types, custom_prompts, top_level_system_prompt):
+    def generate_enhanced_synthetic_data(self, seed_data, num_samples, column_types, custom_prompts):
         synthetic_data = []
         samples_per_original = num_samples // len(seed_data)
         remaining_samples = num_samples % len(seed_data)
@@ -181,7 +254,7 @@ class EnhancedDatasetGenerator:
                         synthetic_row[column] = original_row[column]
                     elif col_type == 'dynamic':
                         original_content = original_row[column]
-                        synthetic_row[column] = self.generate_content(column, original_content, original_row, column_types, custom_prompts, top_level_system_prompt)
+                        synthetic_row[column] = self.generate_content(column, original_content, original_row, column_types, custom_prompts)
                     else:
                         raise ValueError(f"Unknown column type '{col_type}' for column '{column}'")
 
@@ -211,8 +284,8 @@ class EnhancedDatasetGenerator:
         return result_df
     
     def is_question(self, text):
-        return text.strip().endswith('?') or text.lower().startswith(('what', 'when', 'where', 'who', 'why', 'how', 'can', 'could', 'would', 'should', 'is', 'are', 'do', 'does', 'please', 'explain', 'describe'))
-
+        return text.strip().endswith('?') or text.lower().startswith(('what', 'when', 'where', 'who', 'why', 'how', 'can', 'could', 'would', 'should', 'is', 'are', 'do', 'does'))
+    
 class DatasetManager:
     def __init__(self, ollama_interface, template_manager, input_dir, output_dir):
         self.ollama_interface = ollama_interface
@@ -353,7 +426,7 @@ class DatasetManager:
         
         raise ValueError(f"Unable to read data from {file_path} or its JSON/TXT alternatives")
     
-    def generate_synthetic_data(self, seed_file, sample_rate, paraphrases_per_sample, column_types, use_all_samples=True, top_level_system_prompt=None, custom_prompts={}, **kwargs):
+    def generate_synthetic_data(self, seed_file, sample_rate, paraphrases_per_sample, column_types, use_all_samples=True, custom_prompts={}, **kwargs):
         try:
             seed_file_path = os.path.join(self.input_dir, seed_file)
             logging.info(f"Looking for seed file at: {seed_file_path}")
@@ -369,37 +442,26 @@ class DatasetManager:
 
             total_samples = num_samples * paraphrases_per_sample
             
-            # Prepare custom prompts for each column
-            column_prompts = {
-                'task': {
-                    'system': "You are an AI assistant specializing in generating task data.",
-                    'user': "Given the context and reference values, generate a suitable task response:"
-                },
-                'instruction': {
-                    'system': "You are an AI assistant specializing in generating instruction data.",
-                    'user': "Given the context and reference values, generate a suitable instruction response:"
-                },
-                'input': {
-                    'system': "You are an AI assistant specializing in generating input data.",
-                    'user': "Given the context and reference values, generate a suitable input response:"
-                },
-                'output': {
-                    'system': "You are an AI assistant specializing in generating output data.",
-                    'user': "Given the context and reference values, generate a suitable output response:"
-                }
-            }
+            print(f"{Fore.CYAN}Starting synthetic data generation:{Style.RESET_ALL}")
+            print(f"Seed file: {seed_file}")
+            print(f"Total samples to generate: {total_samples}")
+            print(f"Sample rate: {sample_rate}%")
+            print(f"Paraphrases per sample: {paraphrases_per_sample}")
+            print(f"Use all samples: {use_all_samples}")
             
             result_df = self.enhanced_generator.generate_enhanced_synthetic_data(
                 samples_to_use, 
                 total_samples, 
                 column_types, 
-                custom_prompts,
-                top_level_system_prompt
+                custom_prompts
             )
             
+            print(f"{Fore.GREEN}Synthetic data generation completed successfully{Style.RESET_ALL}")
             return result_df
         except Exception as e:
-            logging.exception(f"Error in generate_synthetic_data: {str(e)}")
+            error_msg = f"Error in generate_synthetic_data: {str(e)}"
+            print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+            logging.exception(error_msg)
             raise
         
     def paraphrase_text(self, text):
@@ -421,54 +483,6 @@ class DatasetManager:
         
         paraphrased_text = response['message']['content'].strip()
         return self.clean_paraphrased_text(paraphrased_text)
-
-    def clean_generated_content(self, text):
-        # Remove any explanatory phrases or meta-information
-        text = re.sub(r'^(Paraphrased content:|Verified content:|Corrected version:)\s*', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*(Verification result:.*|Reference Command:.*|Note:.*|Verified Paraphrase:.*)$', '', text, flags=re.IGNORECASE)
-        
-        # Remove any remaining placeholder-like patterns
-        text = re.sub(r'___[A-Za-z_]+___', '', text)
-        
-        # Remove any quotes that might have been added
-        text = text.strip('"\'')
-        
-        # Remove any leading/trailing whitespace
-        text = text.strip()
-        
-        # Ensure the text starts with a capital letter
-        if text and text[0].islower():
-            text = text[0].upper() + text[1:]
-        
-        # Ensure the text ends with proper punctuation
-        if text and not text[-1] in '.!?':
-            text += '.'
-        
-        return text
-    
-    def clean_generated_content(self, text):
-        # Remove any explanatory phrases or meta-information
-        text = re.sub(r'^(Paraphrased content:|Verified content:|Corrected version:)\s*', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*(Verification result:.*|Reference Command:.*|Note:.*|Verified Paraphrase:.*)$', '', text, flags=re.IGNORECASE)
-        
-        # Remove any remaining placeholder-like patterns
-        text = re.sub(r'___[A-Za-z_]+___', '', text)
-        
-        # Remove any quotes that might have been added
-        text = text.strip('"\'')
-        
-        # Remove any leading/trailing whitespace
-        text = text.strip()
-        
-        # Ensure the text starts with a capital letter
-        if text and text[0].islower():
-            text = text[0].upper() + text[1:]
-        
-        # Ensure the text ends with proper punctuation
-        if text and not text[-1] in '.!?':
-            text += '.'
-        
-        return text
 
     def combine_parquets(self, seed_parquet_dir):
         try:

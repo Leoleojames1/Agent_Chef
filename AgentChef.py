@@ -40,10 +40,6 @@ class AgentChef:
 
         try:
             if mode == 'custom':
-                system_prompt = kwargs.get('system_prompt')
-                if not system_prompt:
-                    return {'error': "System prompt is required for custom mode"}
-
                 sample_rate = kwargs.get('sample_rate', 100)
                 paraphrases_per_sample = kwargs.get('paraphrases_per_sample', 1)
                 column_types = kwargs.get('column_types', {})
@@ -60,7 +56,6 @@ class AgentChef:
                     paraphrases_per_sample=paraphrases_per_sample,
                     column_types=column_types,
                     use_all_samples=use_all_samples,
-                    system_prompt=system_prompt,
                     custom_prompts=custom_prompts
                 )
 
