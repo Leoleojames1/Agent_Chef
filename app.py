@@ -9,6 +9,7 @@ from cutlery.DatasetKitchen import TemplateManager
 from cutlery.OllamaInterface import OllamaInterface
 from datetime import datetime
 import traceback
+import time
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
@@ -19,6 +20,11 @@ base_dir = os.path.join(os.path.dirname(__file__), 'agent_chef_data')
 chef = AgentChef(base_dir)
 template_manager = TemplateManager(chef.input_dir)
 ollama_interface = OllamaInterface(None)  # Initialize with no specific model
+
+# Define CUSTOM_PROMPTS_DIR
+CUSTOM_PROMPTS_DIR = os.path.join(base_dir, 'custom_prompts')
+os.makedirs(CUSTOM_PROMPTS_DIR, exist_ok=True)
+
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
@@ -284,11 +290,12 @@ def run_agent_chef():
         result = chef.run(
             mode='custom',
             seed_file=seed_file,
-            systemPrompt=data.get('systemPrompt'),
-            sampleRate=data.get('sampleRate', 100),
-            paraphrasesPerSample=data.get('paraphrasesPerSample', 1),
-            columnTypes=data.get('columnTypes', {}),  # Pass column types to chef.run
-            useAllSamples=data.get('useAllSamples', True)
+            system_prompt=data.get('systemPrompt'),  # Changed from topLevelSystemPrompt to system_prompt
+            sample_rate=data.get('sampleRate', 100),
+            paraphrases_per_sample=data.get('paraphrasesPerSample', 1),
+            column_types=data.get('columnTypes', {}),
+            use_all_samples=data.get('useAllSamples', True),
+            custom_prompts=data.get('customPrompts', {})
         )
         
         if 'error' in result:
@@ -428,5 +435,35 @@ def combine_files():
         logging.exception(f"Error combining files: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
+@app.route('/api/save_prompt_set', methods=['POST'])
+def save_prompt_set():
+    data = request.json
+    name = data.get('name')
+    prompts = data.get('prompts')
+    
+    if not name or not prompts:
+        return jsonify({'error': 'Name and prompts are required'}), 400
+    
+    filename = os.path.join(CUSTOM_PROMPTS_DIR, f"{name}.json")
+    with open(filename, 'w') as f:
+        json.dump(prompts, f, indent=2)
+    
+    return jsonify({'message': f'Prompt set "{name}" saved successfully'})
+
+@app.route('/api/load_prompt_set/<name>', methods=['GET'])
+def load_prompt_set(name):
+    filename = os.path.join(CUSTOM_PROMPTS_DIR, f"{name}.json")
+    try:
+        with open(filename, 'r') as f:
+            prompts = json.load(f)
+        return jsonify(prompts)
+    except FileNotFoundError:
+        return jsonify({'error': 'Prompt set not found'}), 404
+
+@app.route('/api/list_prompt_sets', methods=['GET'])
+def list_prompt_sets():
+    files = [f[:-5] for f in os.listdir(CUSTOM_PROMPTS_DIR) if f.endswith('.json')]
+    return jsonify(files)
+
 if __name__ == '__main__':
     app.run(debug=True)

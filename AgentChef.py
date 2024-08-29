@@ -40,14 +40,15 @@ class AgentChef:
 
         try:
             if mode == 'custom':
-                system_prompt = kwargs.get('systemPrompt')
+                system_prompt = kwargs.get('system_prompt')
                 if not system_prompt:
                     return {'error': "System prompt is required for custom mode"}
 
-                sample_rate = kwargs.get('sampleRate', 100)
-                paraphrases_per_sample = kwargs.get('paraphrasesPerSample', 1)
-                column_types = kwargs.get('columnTypes', {})
-                use_all_samples = kwargs.get('useAllSamples', True)
+                sample_rate = kwargs.get('sample_rate', 100)
+                paraphrases_per_sample = kwargs.get('paraphrases_per_sample', 1)
+                column_types = kwargs.get('column_types', {})
+                use_all_samples = kwargs.get('use_all_samples', True)
+                custom_prompts = kwargs.get('custom_prompts', {})
 
                 seed_file_path = os.path.join(self.input_dir, seed_file)
                 if not os.path.exists(seed_file_path):
@@ -59,7 +60,8 @@ class AgentChef:
                     paraphrases_per_sample=paraphrases_per_sample,
                     column_types=column_types,
                     use_all_samples=use_all_samples,
-                    system_prompt=system_prompt
+                    system_prompt=system_prompt,
+                    custom_prompts=custom_prompts
                 )
 
                 if result_df.empty:

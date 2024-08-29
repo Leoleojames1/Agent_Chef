@@ -39,6 +39,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
+import CustomPromptEditor from './components/CustomPromptEditor';
 
 const drawerWidth = 240;
 
@@ -198,6 +199,7 @@ function App() {
   const [availableColumns, setAvailableColumns] = useState([]);
   const [columnTypes, setColumnTypes] = useState({});
   const [useAllSamples, setUseAllSamples] = useState(true);
+  const [customPrompts, setCustomPrompts] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +235,22 @@ useEffect(() => {
     console.log("Initialized column types:", initialColumnTypes);
   }
 }, [availableColumns]);
+
+useEffect(() => {
+  const updatedCustomPrompts = { ...customPrompts };
+  Object.entries(columnTypes).forEach(([column, type]) => {
+    if (type === 'dynamic' && !updatedCustomPrompts.dynamicColumns?.[column]) {
+      updatedCustomPrompts.dynamicColumns = {
+        ...updatedCustomPrompts.dynamicColumns,
+        [column]: {
+          system: `You are an AI assistant specializing in generating ${column} data.`,
+          user: `Given the context and reference values, generate a suitable ${column} response:`
+        }
+      };
+    }
+  });
+  setCustomPrompts(updatedCustomPrompts);
+}, [columnTypes]);
 
   if (error) {
     return (
@@ -663,6 +681,10 @@ useEffect(() => {
     }
   };
 
+  const handleSavePrompts = (prompts) => {
+    setCustomPrompts(prompts);
+  };
+
   const runAgentChef = async () => {
     try {
       setError(null);
@@ -680,11 +702,12 @@ useEffect(() => {
         mode: 'custom',
         ollamaModel: selectedOllamaModel,
         seedFile: selectedFile,
-        systemPrompt: systemPrompt,
+        systemPrompt: systemPrompt,  // This is the top-level system prompt
         sampleRate: sampleRate,
         paraphrasesPerSample: paraphrasesPerSample,
-        columnTypes: columnTypes,  // This should now contain the correct column types
-        useAllSamples: useAllSamples
+        columnTypes: columnTypes,
+        useAllSamples: useAllSamples,
+        customPrompts: customPrompts  // This includes the prompts from CustomPromptEditor
       };
   
       console.log("Sending data to server:", JSON.stringify(dataToSend, null, 2));
@@ -861,7 +884,7 @@ useEffect(() => {
                 fullWidth
                 multiline
                 rows={4}
-                label="System Prompt"
+                label="Top-level System Prompt"
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 sx={{ mb: 2 }}
@@ -997,6 +1020,15 @@ useEffect(() => {
                   </Select>
                 </Box>
               ))}
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+              <CustomPromptEditor
+                columnTypes={columnTypes}
+                onSavePrompts={handleSavePrompts}
+                initialCustomPrompts={customPrompts}
+              />
             </Paper>
           </Grid>
           <Grid item xs={12}>

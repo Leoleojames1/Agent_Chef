@@ -11,11 +11,78 @@ import time
 import re
 import random
 
+class PromptManager:
+    def __init__(self):
+        self.prompts = {
+            'system': "You are a dataset generation assistant. Your task is to generate diverse, high-quality data while maintaining consistency with the provided context and reference values.",
+            'paraphrase': {
+                'system': "You are a paraphrasing assistant. Your task is to rephrase the given text while maintaining its original meaning and incorporating any provided reference values.",
+                'user': "Original text: {text}\nReference values: {reference_values}\n\nPlease rephrase the text, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the rephrased text is coherent and contextually relevant."
+            },
+            'verify': {
+                'system': "You are a verification assistant. Your task is to ensure that the generated content maintains the original meaning, format, and incorporates any reference values correctly.",
+                'user': "Original: {original}\nGenerated: {generated}\nReference values: {reference}\nIs question: {is_question}\n\nVerify that the generated content maintains the original meaning, format, and correctly incorporates the reference values. If it does, return the generated content. If not, provide a corrected version."
+            },
+            'dynamicColumns': {}
+        }
+
+    def get_prompt(self, prompt_type, sub_type=None, column=None):
+        if column and prompt_type == 'dynamicColumns':
+            return self.prompts['dynamicColumns'].get(column, {}).get(sub_type, "")
+        elif sub_type:
+            return self.prompts.get(prompt_type, {}).get(sub_type, "")
+        return self.prompts.get(prompt_type, "")
+
+    def set_prompt(self, prompt_type, prompt_text, sub_type=None, column=None):
+        if column and prompt_type == 'dynamicColumns':
+            if column not in self.prompts['dynamicColumns']:
+                self.prompts['dynamicColumns'][column] = {}
+            self.prompts['dynamicColumns'][column][sub_type] = prompt_text
+        elif sub_type:
+            if prompt_type not in self.prompts:
+                self.prompts[prompt_type] = {}
+            self.prompts[prompt_type][sub_type] = prompt_text
+        else:
+            self.prompts[prompt_type] = prompt_text
+
+    def get_all_prompts(self):
+        return self.prompts
+
 class EnhancedDatasetGenerator:
     def __init__(self, ollama_interface, template_manager):
         self.ollama_interface = ollama_interface
         self.template_manager = template_manager
+        self.prompt_manager = PromptManager()
 
+    def generate_content(self, column, text, row, column_types, custom_prompts, top_level_system_prompt):
+        reference_values = {col: row[col] for col, col_type in column_types.items() if col_type == 'reference'}
+        is_question = self.is_question(text)
+
+        column_specific_prompt = custom_prompts.get('dynamicColumns', {}).get(column, {}).get('system', '')
+        column_specific_user_prompt = custom_prompts.get('dynamicColumns', {}).get(column, {}).get('user', '')
+
+        system_prompt = f"{top_level_system_prompt}\n\n{column_specific_prompt}"
+
+        user_prompt = f"""
+        {column_specific_user_prompt}
+
+        Original text: {text}
+        Reference values: {reference_values}
+        Is question: {is_question}
+
+        Please generate a suitable response for the '{column}' column, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the response is coherent and contextually relevant. If the original is a question, the output should be a question. If the original is a statement, the output should be a statement.
+        """
+
+        response = self.ollama_interface.chat(messages=[
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt}
+        ])
+        
+        generated_content = response['message']['content'].strip()
+        verified_content = self.verify_content(column, original=text, generated=generated_content, reference=reference_values, is_question=is_question, top_level_system_prompt=top_level_system_prompt)
+        
+        return verified_content
+        
     def generate_paraphrase(self, text, row, column_types):
         reference_values = {col: row[col] for col, col_type in column_types.items() if col_type == 'reference'}
         is_question = self.is_question(text)
@@ -71,33 +138,79 @@ class EnhancedDatasetGenerator:
             verified_text += '?'
         
         return verified_text
-    
-    def generate_enhanced_synthetic_data(self, seed_data, num_samples=100, template_name='commander', system_prompt=None):
-        template = self.template_manager.get_template(template_name)
+
+    def verify_content(self, column, original, generated, reference, is_question, top_level_system_prompt):
+        user_prompt = f"""
+        Column: {column}
+        Original: {original}
+        Generated: {generated}
+        Reference values: {reference}
+        Is question: {is_question}
+
+        Verify that the generated content for the '{column}' column maintains the original meaning, format, and correctly incorporates the reference values. If it does, return the generated content exactly as is. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values. Do not include any explanations or meta-information in your response.
+        """
+
+        response = self.ollama_interface.chat(messages=[
+            {'role': 'system', 'content': top_level_system_prompt},
+            {'role': 'user', 'content': user_prompt}
+        ])
+        
+        verified_text = response['message']['content'].strip()
+        
+        # Ensure the verified text ends with a question mark if the original was a question
+        if is_question and not verified_text.endswith('?'):
+            verified_text += '?'
+        elif not is_question and verified_text.endswith('?'):
+            verified_text = verified_text[:-1] + '.'
+        
+        return verified_text
+
+    def generate_enhanced_synthetic_data(self, seed_data, num_samples, column_types, custom_prompts, top_level_system_prompt):
         synthetic_data = []
+        samples_per_original = num_samples // len(seed_data)
+        remaining_samples = num_samples % len(seed_data)
 
-        for _ in tqdm(range(num_samples), desc="Generating synthetic data"):
-            synthetic_row = {}
-            original_row = seed_data.sample(n=1).iloc[0]
+        for _, original_row in tqdm(seed_data.iterrows(), total=len(seed_data), desc="Generating synthetic data"):
+            samples_for_this_row = samples_per_original + (1 if remaining_samples > 0 else 0)
+            remaining_samples = max(0, remaining_samples - 1)
 
-            for column in template:
-                if column in seed_data.columns:
-                    original_content = original_row[column]
-
-                    if column in ['command_description', 'request', 'response']:
-                        synthetic_row[column] = self.generate_paraphrases(original_content, n=1, system_prompt=system_prompt)[0]
+            for _ in range(samples_for_this_row):
+                synthetic_row = {}
+                for column, col_type in column_types.items():
+                    if col_type in ['static', 'reference']:
+                        synthetic_row[column] = original_row[column]
+                    elif col_type == 'dynamic':
+                        original_content = original_row[column]
+                        synthetic_row[column] = self.generate_content(column, original_content, original_row, column_types, custom_prompts, top_level_system_prompt)
                     else:
-                        # For other columns (like 'command'), keep the original content
-                        synthetic_row[column] = original_content
+                        raise ValueError(f"Unknown column type '{col_type}' for column '{column}'")
+
+                synthetic_data.append(synthetic_row)
+
+        result_df = pd.DataFrame(synthetic_data)
+
+        # Verify all columns
+        for column, col_type in column_types.items():
+            if col_type in ['static', 'reference']:
+                original_values = seed_data[column].repeat(samples_per_original).reset_index(drop=True)
+                if remaining_samples > 0:
+                    original_values = pd.concat([original_values, seed_data[column][:remaining_samples]], ignore_index=True)
+                if not result_df[column].equals(original_values):
+                    logging.error(f"{col_type.capitalize()} column '{column}' has been modified!")
+                    logging.error(f"Original values: {original_values}")
+                    logging.error(f"Modified values: {result_df[column]}")
+                    raise ValueError(f"{col_type.capitalize()} column '{column}' has been modified during synthetic data generation. This is not allowed.")
                 else:
-                    synthetic_row[column] = f"Placeholder for {column}"
+                    logging.info(f"Verified {col_type} column '{column}' remains unchanged.")
+            elif col_type == 'dynamic':
+                if result_df[column].equals(seed_data[column].repeat(samples_per_original).reset_index(drop=True)):
+                    logging.warning(f"Dynamic column '{column}' has not been modified. This is unexpected.")
+                else:
+                    logging.info(f"Verified dynamic column '{column}' has been modified as expected.")
 
-            synthetic_data.append(synthetic_row)
-
-        return pd.DataFrame(synthetic_data)
+        return result_df
     
     def is_question(self, text):
-        #TODO QUESTION OR REQUEST (Please explain what /swap does.)
         return text.strip().endswith('?') or text.lower().startswith(('what', 'when', 'where', 'who', 'why', 'how', 'can', 'could', 'would', 'should', 'is', 'are', 'do', 'does', 'please', 'explain', 'describe'))
 
 class DatasetManager:
@@ -240,7 +353,7 @@ class DatasetManager:
         
         raise ValueError(f"Unable to read data from {file_path} or its JSON/TXT alternatives")
     
-    def generate_synthetic_data(self, seed_file, sample_rate, paraphrases_per_sample, column_types, use_all_samples=True, **kwargs):
+    def generate_synthetic_data(self, seed_file, sample_rate, paraphrases_per_sample, column_types, use_all_samples=True, top_level_system_prompt=None, custom_prompts={}, **kwargs):
         try:
             seed_file_path = os.path.join(self.input_dir, seed_file)
             logging.info(f"Looking for seed file at: {seed_file_path}")
@@ -254,59 +367,41 @@ class DatasetManager:
             
             samples_to_use = seed_data if use_all_samples else seed_data.sample(n=num_samples, replace=False)
 
-            synthetic_data = []
-            for _, row in tqdm(samples_to_use.iterrows(), total=len(samples_to_use)):
-                for _ in range(paraphrases_per_sample):
-                    synthetic_row = {}
-                    reference_values = {col: row[col] for col in seed_data.columns if column_types.get(col) == 'reference'}
-                    
-                    for column in seed_data.columns:
-                        col_type = column_types.get(column, 'dynamic')
-                        logging.info(f"Processing column: {column}, type: {col_type}")
-                        
-                        if col_type in ['static', 'reference']:
-                            synthetic_row[column] = row[column]
-                            logging.info(f"Copied {col_type} column '{column}': {synthetic_row[column]}")
-                        elif col_type == 'dynamic':
-                            original_content = row[column]
-                            paraphrased_content = self.enhanced_generator.generate_paraphrase(original_content, row, column_types)
-                            synthetic_row[column] = paraphrased_content
-                            logging.info(f"Generated dynamic content for column '{column}': {synthetic_row[column]}")
-                        else:
-                            raise ValueError(f"Unknown column type '{col_type}' for column '{column}'")
-
-                    synthetic_data.append(synthetic_row)
-
-            result_df = pd.DataFrame(synthetic_data)
+            total_samples = num_samples * paraphrases_per_sample
             
-            # Verify all columns
-            for column in seed_data.columns:
-                col_type = column_types.get(column, 'dynamic')
-                if col_type in ['static', 'reference']:
-                    original_values = seed_data[column].repeat(paraphrases_per_sample).reset_index(drop=True)
-                    if not result_df[column].equals(original_values):
-                        logging.error(f"{col_type.capitalize()} column '{column}' has been modified!")
-                        logging.error(f"Original values: {original_values}")
-                        logging.error(f"Modified values: {result_df[column]}")
-                        raise ValueError(f"{col_type.capitalize()} column '{column}' has been modified during synthetic data generation. This is not allowed.")
-                    else:
-                        logging.info(f"Verified {col_type} column '{column}' remains unchanged.")
-                elif col_type == 'dynamic':
-                    if result_df[column].equals(seed_data[column].repeat(paraphrases_per_sample).reset_index(drop=True)):
-                        logging.warning(f"Dynamic column '{column}' has not been modified. This is unexpected.")
-                    else:
-                        logging.info(f"Verified dynamic column '{column}' has been modified as expected.")
+            # Prepare custom prompts for each column
+            column_prompts = {
+                'task': {
+                    'system': "You are an AI assistant specializing in generating task data.",
+                    'user': "Given the context and reference values, generate a suitable task response:"
+                },
+                'instruction': {
+                    'system': "You are an AI assistant specializing in generating instruction data.",
+                    'user': "Given the context and reference values, generate a suitable instruction response:"
+                },
+                'input': {
+                    'system': "You are an AI assistant specializing in generating input data.",
+                    'user': "Given the context and reference values, generate a suitable input response:"
+                },
+                'output': {
+                    'system': "You are an AI assistant specializing in generating output data.",
+                    'user': "Given the context and reference values, generate a suitable output response:"
+                }
+            }
             
-            if result_df.empty:
-                logging.warning("Generated DataFrame is empty")
-            else:
-                logging.info(f"Generated DataFrame shape: {result_df.shape}")
+            result_df = self.enhanced_generator.generate_enhanced_synthetic_data(
+                samples_to_use, 
+                total_samples, 
+                column_types, 
+                custom_prompts,
+                top_level_system_prompt
+            )
             
             return result_df
         except Exception as e:
             logging.exception(f"Error in generate_synthetic_data: {str(e)}")
             raise
-
+        
     def paraphrase_text(self, text):
         if not text.strip():
             return text
