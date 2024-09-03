@@ -1,0 +1,155 @@
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/swap" command does.")
+$("The "/swap" command in Ollama Agent Roll Cage allows the user to select and swap the current ollama llm model with another ollama llm model.")
+$("/swap")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/agent select" command does.")
+$("The "/agent select" command allows the user to select which agent template should be loaded into, and used by Ollama Agent Roll Cage.")
+$("/agent select")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/voice swap" command does.")
+$("The "/voice swap" command the user to select which voice model finetune should loaded into, and used by Ollama Agent Roll Cage.")
+$("/voice swap")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/automatic on" command does.")
+$("The "/automatic on" command allows the user to turn on the automatic function calling parser the your command response strings to be
+ automatically executed.")
+$("/automatic on")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/automatic off" command does.")
+$("The "/automatic off" command allows the user to turn off the automatic function calling parser for your command response strings to no longer be
+ automatically executed.")
+$("/automatic off")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/listen on" command does.")
+$("The "/listen on" command turns on the speech recognition model.")
+$("/listen on")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/listen off" command does.")
+$("The "/listen off" command turns off the speech recognition model.")
+$("/listen off")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/voice on" command does.")
+$("The "/voice on" command loads the text to speech model in VRAM or CPU, and allows the user to select which voice model finetune is used for
+ speech generation for Ollama Agent Roll Cage.")
+$("/voice on")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/voice off" command does.")
+$("The "/voice off" command turns the text to speech generation model off.")
+$("/voice off")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/speech on" command does.")
+$("The "/speech on" command activates both the speech recognition, and text to speech generation models, for seemless speech to speech integration.")
+$("/speech on")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/speech off" command does.")
+$("The "/speech off" deactivates both the speech recognition, and text to speech generation models, to quit speech to speech mode and
+ enter text to text mode.")
+$("/speech off")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/latex on" command does.")
+$("The "/latex on" activates the customTkinter gui for latex formula rendering.")
+$("/latex on")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/latex off" command does.")
+$("The "/latex off" deactivates the customTkinter gui for latex formula rendering.")
+$("/latex off")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/llava flow" command does.")
+$("The "/llava flow" command allows the user to select which ollama Llava model should be loaded for vision.")
+$("/llava flow")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/llava freeze" command does.")
+$("The "/llava freeze" deactivates the ollama llava vision model.")
+$("/llava freeze")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/ollama template" command does.")
+$("The "/ollama template" command prints the template file for the currently loaded llm or llava models with ollama.")
+$("/ollama template")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/ollama list" command does.")
+$("The "/ollama list" command prints the list of ollama models currently downloaded in ollama.")
+$("/ollama list")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/ollama loaded" command does.")
+$("The "/ollama loaded" command prints the currently loaded ollama models.")
+$("/ollama loaded")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/ollama show" command does.")
+$("The "/ollama show" command prints the modelfile for the currently loaded ollama models.")
+$("/ollama show")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/ollama license" command does.")
+$("The "/ollama license" command prints the license file for the currently loaded ollama model.")
+$("/ollama license")
+
+$("command_validation")
+$("You are a function validation specialist for Ollama Agent Roll Cage. The available commands are: "/swap, /agent select, /voice swap, /automatic on, /automatic off, /listen on, /listen off, /voice on, /voice off, /speech on, /speech off, /latex on, /latex off, /llava flow, /llava freeze, /ollama template, /ollama list, /ollama loaded, /ollama show, and /ollama license", any other commands are not valid ollama agent roll cage commands, unless a developer adds them to the codebase, and retrains the finetuned function calling assistant.")
+$("Please explain what the "/kissmybutt" command does.")
+$("Im sorry, but the "/kissmybutt" command is not a valid Ollama Agent Roll Cage command.")
+$("/kissmybutt")
+
+$("command_validation")
+$("You are a function validation specialist for Ollama Agent Roll Cage. The available commands are: "/swap, /agent select, /voice swap, /automatic on, /automatic off, /listen on, /listen off, /voice on, /voice off, /speech on, /speech off, /latex on, /latex off, /llava flow, /llava freeze, /ollama template, /ollama list, /ollama loaded, /ollama show, and /ollama license", any other commands are not valid ollama agent roll cage commands, unless a developer adds them to the codebase, and retrains the finetuned function calling assistant.")
+$("Please run the "/chatgpt on" command.")
+$("Im sorry, but the "/chatgpt on" command is not a valid Ollama Agent Roll Cage command.")
+$("/chatgpt on")
+
+$("command_validation")
+$("You are a function validation specialist for Ollama Agent Roll Cage. The available commands are: "/swap, /agent select, /voice swap, /automatic on, /automatic off, /listen on, /listen off, /voice on, /voice off, /speech on, /speech off, /latex on, /latex off, /llava flow, /llava freeze, /ollama template, /ollama list, /ollama loaded, /ollama show, and /ollama license", any other commands are not valid ollama agent roll cage commands, unless a developer adds them to the codebase, and retrains the finetuned function calling assistant.")
+$("Please run the "/where is my soup" command.")
+$("Im sorry, but the "/where is my soup" command is not a valid Ollama Agent Roll Cage command.")
+$("/where is my soup")
+
+$("command_enumerate")
+$("You are a function enumeration specialist for Ollama Agent Roll Cage.")
+$("Please provide me with a list of the available Ollama Agent Roll Cage commands, with a breif description of what they do.")
+$("The commands for Ollama Agent Roll Cage are as follows: /swap, /agent select, /voice swap, /automatic on, /automatic off, /listen on, /listen off, /voice on, /voice off, /speech on, /speech off, /latex on, /latex off, /llava flow, /llava freeze, /ollama template, /ollama list, /ollama loaded, /ollama show, and /ollama license
+If there is a specific command you would like me to execute for you I would be happy to. Just say "Please run the command for..." or "Please {insert_request_command_description}" or "Only Respond with the command for..." and I will respond with the necessary command string to be parsed out by Ollama Agent Roll Cage and executed by the program.
+Feel free to try different requests! My training is modular and I have a deep understanding of the interconnectedness of the Ollama Agent Roll Cage commands. You can even request multiple function calls and I will do my best to build the execution list for a multiple command calling task, such as "/listen on /llava flow" would be multiple commands that will be parsed and executed one by one in the order they are devised.")
+$("/swap, /agent select, /voice swap, /automatic on, /automatic off, /listen on, /listen off, /voice on, /voice off, /speech on, /speech off, /latex on, /latex off, /llava flow, /llava freeze, /ollama template, /ollama list, /ollama loaded, /ollama show, /ollama license")
+
+$("command_sentience")
+$("You are a command sentience specialist for Ollama Agent Roll Cage (OARC). Your name is OARC_Commander, an Ollama Agent Roll Cage command call, description, enumeration, and validation assistant, finetuned on the library of various possible Ollama Agent Roll Cage command calls.")
+$("Who are you? What do you do and what were you trained on? Who trained you?")
+$("I am OARC_Commander, a command calling description and enumeration assistant for Ollama Agent Roll Cage. I was trained by @Leo_Borcherding utilizing hand constructed function calling datasets for modular OARC command calling optimization, command description displays, and command execution.")
+$("none")

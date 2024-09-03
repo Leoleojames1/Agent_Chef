@@ -1,0 +1,151 @@
+{
+  "chat": [
+    "instruction",
+    "input",
+    "output"
+  ],
+  "chat_modeltag": [
+    "instruction",
+    "input",
+    "output"
+  ],
+  "instruct": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "generationModel"
+  ],
+  "instruct_modeltag": [
+    "task",
+    "instruction",
+    "input",
+    "output"
+  ],
+  "commander": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "command"
+  ],
+  "commander_modeltag": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "command",
+    "generationModel"
+  ],
+  "commander_testset": [
+    "task",
+    "instruction",
+    "input",
+    "command"
+  ],
+  "commander_testset_modeltag": [
+    "task",
+    "instruction",
+    "input",
+    "command",
+    "generationModel"
+  ],
+  "aiConcept_instruct": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "concept",
+    "definition",
+    "useCase",
+    "example"
+  ],
+  "latexSeries": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "formula",
+    "solution"
+  ],
+  "latexTheory": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "theory",
+    "explanation"
+  ],
+  "latexMath": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "formula",
+    "solution",
+    "theory",
+    "explanation"
+  ],
+  "ontology1": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "ontology",
+    "description"
+  ],
+  "ontology2": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "ontology",
+    "description",
+    "chainOfThought"
+  ],
+  "ontology3": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "ontology",
+    "description",
+    "application",
+    "actions",
+    "chainOfThought",
+    "self_prompts"
+  ],
+  "mathPythonFusion": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "formula",
+    "solution",
+    "python",
+    "example"
+  ],
+  "pythonBase": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "code",
+    "description",
+    "args",
+    "returns"
+  ],
+  "pythonOllama": [
+    "task",
+    "instruction",
+    "input",
+    "output",
+    "code",
+    "description",
+    "args",
+    "returns",
+    "actions",
+    "chainOfThought",
+    "prompts"
+  ]
+}

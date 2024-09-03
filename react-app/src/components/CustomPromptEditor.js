@@ -14,7 +14,7 @@ Reference values: {reference_values}
 Please generate a new input question, maintaining its core meaning and incorporating the reference values where appropriate. Ensure the generated question is coherent and contextually relevant. Provide only the generated question without any additional explanations or formatting.`
     },
     output: {
-      system: `You are an AI assistant specializing in generating output statement data. Your task is to maintain all of the details of the description given, maintaining its original meaning and incorporating the provided reference values. Do not add any explanatory text or meta-information. You will keep all statements as statements and just re-state them. Please make sure to change up the statement and rephrase it a different way, you like to repeat the same responses I want variance.`,
+      system: `You are an AI assistant specializing in generating output statement data. Your task is to maintain all of the details of the description given, maintaining its original meaning and incorporating the provided reference values. Do not add any explanatory text or meta-information. You will keep all statements as statements and just re-state them. Please make sure to change up the statement and rephrase it a different way, you like to repeat the same responses I want variance.  Make sure to correctly incorporate the reference values and do not contain the {text} or {command} format string this is an artifact format.`,
       user: `Original text: {text}
 Reference values: {reference_values}
 
@@ -28,7 +28,7 @@ Generated: {generated}
 Reference values: {reference}
 Is question: {is_question}
 
-Verify that the generated content maintains the original meaning, format (question or statement), and correctly incorporates the reference values. If it does, return the generated content. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values.
+Verify that the generated content maintains the original meaning, format (question or statement), and correctly incorporates the reference values and does not contain the {text} or {command} format string this is an artifact format. If it does, return the generated content. If not, provide a corrected version that accurately reflects the original meaning, format, and includes the reference values.
 Do not include any explanatory text or meta-information in your response, instead just utilize the existing meaning.`
   }
 };

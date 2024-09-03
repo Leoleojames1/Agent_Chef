@@ -662,23 +662,41 @@ class TemplateManager:
                 templates = json.load(f)
         else:
             templates = {
-                "chat": ["user", "assistant"],
-                "instruct": ["request", "response"],
-                "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],      
-                "functionCall": ["request", "response", "explain", "task",],
-                "commander": ["task", "instruction", "input", "output", "command"],   
-                "commander_extra": ["request", "response", "commandName", "task", "args", "clarification", "confirmation"],
-                "intention": ["request", "response", "commandName", "task", "args", "enumerate", "validate", "describe"],
-                "latexSeries": ["request", "response", "formula", "solution"],
-                "latexTheory": ["request", "response", "theory", "explanation"],
-                "latexMath" : ["request", "response", "formula", "solution", "theory", "explanation"],
-                "mathPythonFusion": ["request", "response", "formula", "solution", "python", "example"],
-                "pythonBase": ["request", "response", "code", "description", "args", "returns"],
-                "pythonOllama": ["request", "response", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],
-                "ontology1": ["request", "response", "ontology", "description"],
-                "ontology2": ["request", "response", "ontology", "description", "chainOfThought"],
-                "ontology3": ["request", "response", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
+                "chat": ["instruction", "input", "output"],
+                "chat_modeltag": ["instruction", "input", "output"],
+                "instruct": ["task", "instruction", "input", "output", "generationModel"],
+                "instruct_modeltag": ["task", "instruction", "input", "output"],
+                "commander": ["task", "instruction", "input", "output", "command"],
+                "commander_modeltag": ["task", "instruction", "input", "output", "command", "generationModel"],                
+                "commander_testset": ["task", "instruction", "input", "command"],
+                "commander_testset_modeltag": ["task", "instruction", "input", "command", "generationModel"],
+                "aiConcept_instruct": ["task", "instruction", "input", "output", "concept", "definition", "useCase", "example"],   
+                "latexSeries": ["task", "instruction", "input", "output", "formula", "solution"],
+                "latexTheory": ["task", "instruction", "input", "output", "theory", "explanation"],
+                "latexMath" : ["task", "instruction", "input", "output", "formula", "solution", "theory", "explanation"],
+                "ontology1": ["task", "instruction", "input", "output", "ontology", "description"],
+                "ontology2": ["task", "instruction", "input", "output", "ontology", "description", "chainOfThought"],
+                "ontology3": ["task", "instruction", "input", "output", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
+                "mathPythonFusion": ["task", "instruction", "input", "output", "formula", "solution", "python", "example"],
+                "pythonBase": ["task", "instruction", "input", "output", "code", "description", "args", "returns"],
+                "pythonOllama": ["task", "instruction", "input", "output", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],   
             }
+            
+            # "commander_extra": ["request", "response", "commandName", "task", "args", "clarification", "confirmation"],
+            # "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],      
+            # "functionCall": ["request", "response", "explain", "task",],
+            # "intention": ["request", "response", "commandName", "task", "args", "enumerate", "validate", "describe"],
+            #     "latexSeries": ["request", "response", "formula", "solution"],
+            #     "latexTheory": ["request", "response", "theory", "explanation"],
+            #     "latexMath" : ["request", "response", "formula", "solution", "theory", "explanation"],
+            #     "mathPythonFusion": ["request", "response", "formula", "solution", "python", "example"],
+            #     "pythonBase": ["request", "response", "code", "description", "args", "returns"],
+            #     "pythonOllama": ["request", "response", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],
+            #     "ontology1": ["request", "response", "ontology", "description"],
+            #     "ontology2": ["request", "response", "ontology", "description", "chainOfThought"],
+            #     "ontology3": ["request", "response", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
+            # }
+            
             self.save_templates(templates)
         
         # Ensure all template values are lists

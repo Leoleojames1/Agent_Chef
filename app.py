@@ -1,16 +1,18 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from colorama import init, Fore, Back, Style
+from datetime import datetime
 import os
 import json
 import pandas as pd
 import logging
+import traceback
+import time
 from cutlery.DatasetKitchen import DatasetManager, TemplateManager
 from cutlery.OllamaInterface import OllamaInterface
 from cutlery.FileHandler import FileHandler
-import traceback
-import time
-from colorama import init, Fore, Back, Style
-from datetime import datetime
+from cutlery.UnslothTrainer import UnslothTrainer
+
 init(autoreset=True)
 
 app = Flask(__name__)
@@ -21,7 +23,13 @@ base_dir = os.path.join(os.path.dirname(__file__), 'agent_chef_data')
 input_dir = os.path.join(base_dir, "ingredients")
 output_dir = os.path.join(base_dir, "dishes")
 latex_library_dir = os.path.join(base_dir, "latex_library")
-construction_zone_dir = os.path.join(base_dir, "construction_zone")
+huggingface_dir = os.path.join(base_dir, "huggingface_models")
+salad_dir = os.path.join(base_dir, "salad")
+oven_dir = os.path.join(base_dir, "oven")
+edits_dir = os.path.join(base_dir, "edits")
+
+for dir_path in [huggingface_dir, salad_dir, oven_dir, edits_dir]:
+    os.makedirs(dir_path, exist_ok=True)
 
 ollama_interface = OllamaInterface(None)
 file_handler = FileHandler(input_dir, output_dir)
@@ -92,15 +100,25 @@ def run(mode, seed_file, **kwargs):
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
-    ingredient_files = [f for f in os.listdir(input_dir) if f.endswith(('.json', '.parquet', '.txt', '.tex'))]
-    dish_files = [f for f in os.listdir(output_dir) if f.endswith('.parquet')]
-    construction_files = [f for f in os.listdir(construction_zone_dir) if f.endswith('.txt')]
+    def get_files_from_dir(directory):
+        return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.endswith(('.json', '.parquet', '.txt', '.tex'))]
+
+    ingredient_files = get_files_from_dir(input_dir)
+    dish_files = get_files_from_dir(output_dir)
     latex_files = [f for f in os.listdir(latex_library_dir) if f.endswith('.tex')]
+    salad_files = get_files_from_dir(salad_dir)
+    huggingface_folders = [f for f in os.listdir(huggingface_dir) if os.path.isdir(os.path.join(huggingface_dir, f))]
+    oven_files = get_files_from_dir(oven_dir)
+    edits_files = get_files_from_dir(edits_dir)
+    
     return jsonify({
         "ingredient_files": ingredient_files,
         "dish_files": dish_files,
-        "construction_files": construction_files,
-        "latex_files": latex_files
+        "latex_files": latex_files,
+        "salad_files": salad_files,
+        "huggingface_folders": huggingface_folders,
+        "oven_files": oven_files,
+        "edits_files": edits_files
     })
 
 @app.route('/api/parquet_data', methods=['GET'])
@@ -112,30 +130,50 @@ def get_parquet_data():
     if not filename:
         return jsonify({"error": "Filename is required"}), 400
 
-    # Check both input_dir and output_dir for the file
-    file_path = os.path.join(input_dir, filename)
-    if not os.path.exists(file_path):
-        file_path = os.path.join(output_dir, filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": f"File not found: {filename}"}), 404
+    # Handle 'edits/' prefix
+    if filename.startswith('edits/'):
+        filename = filename.replace('edits/', '', 1)
+        file_path = os.path.join(edits_dir, filename)
+    else:
+        # Check input_dir, output_dir, salad_dir, and edits_dir for the file
+        for dir_path in [input_dir, output_dir, salad_dir, edits_dir]:
+            file_path = os.path.join(dir_path, filename)
+            if os.path.exists(file_path):
+                break
+        else:
+            return jsonify({"error": f"File not found: {filename}. Searched in {input_dir}, {output_dir}, {salad_dir}, {edits_dir}"}), 404
 
     try:
+        if not os.path.exists(file_path):
+            return jsonify({"error": f"File not found: {file_path}"}), 404
+        
         df = pd.read_parquet(file_path)
+        columns = df.columns.tolist()
         start = page * rows_per_page
         end = min(start + rows_per_page, len(df))
         page_data = df.iloc[start:end].to_dict('records')
-        return jsonify({"content": page_data, "total_rows": len(df)})
+        return jsonify({
+            "content": page_data,
+            "total_rows": len(df),
+            "columns": columns
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@app.route('/api/file/<type>/<filename>', methods=['GET'])
+        return jsonify({"error": f"Error reading parquet file: {str(e)}"}), 500
+
+@app.route('/api/file/<type>/<path:filename>', methods=['GET'])
 def get_file_content(type, filename):
+    logging.info(f"Received request for file: {filename} of type: {type}")
     if type == 'ingredient':
         file_path = os.path.join(input_dir, filename)
     elif type == 'dish':
         file_path = os.path.join(output_dir, filename)
     elif type == 'latex':
         file_path = os.path.join(latex_library_dir, filename)
+    elif type == 'salad':
+        file_path = os.path.join(salad_dir, filename)
+    elif type == 'edit':
+        # Handle files in the 'edits' folder
+        file_path = os.path.join(input_dir, 'edits', filename)
     else:
         return jsonify({"error": "Invalid file type"}), 400
     
@@ -152,9 +190,32 @@ def get_file_content(type, filename):
         else:
             return jsonify({"error": "Unsupported file type"}), 400
     except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": f"File not found: {file_path}"}), 404
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Error reading file: {str(e)}"}), 500
+
+@app.route('/api/file/edit/<path:filename>', methods=['GET'])
+def get_edit_file_content(filename):
+    file_path = os.path.join(input_dir, 'edits', filename)
+    return _read_file_content(file_path, filename)
+
+def _read_file_content(file_path, filename):
+    try:
+        if filename.endswith('.parquet'):
+            df = pd.read_parquet(file_path)
+            content = df.head(100).to_dict('records')  # Convert first 100 rows to list of dictionaries
+            columns = df.columns.tolist()
+            return jsonify({"content": content, "columns": columns, "total_rows": len(df)})
+        elif filename.endswith(('.txt', '.json', '.tex')):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return jsonify({"content": content})
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
+    except FileNotFoundError:
+        return jsonify({"error": f"File not found: {file_path}"}), 404
+    except Exception as e:
+        return jsonify({"error": f"Error reading file: {str(e)}"}), 500
 
 @app.route('/api/save', methods=['POST'])
 def save_file():
@@ -229,33 +290,42 @@ def save_template():
         return jsonify({'success': True, 'message': 'Template saved successfully', 'template': template})
     except Exception as e:
         return jsonify({'error': f'Failed to save template: {str(e)}'}), 500
-
+    
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json
     print(f"{Fore.CYAN}Received data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
     ollama_model = data.get('ollamaModel')
-    
+    custom_chat_template = data.get('customChatTemplate')
+
     try:
         if not ollama_model:
             print(f"{Fore.RED}Ollama model not specified{Style.RESET_ALL}")
             raise ValueError("Ollama model not specified")
-        
+
         print(f"{Fore.GREEN}Initializing Ollama model: {ollama_model}{Style.RESET_ALL}")
         initialize(ollama_model)
-        
+
         seed_file = data.get('seedFile')
         if not seed_file:
             print(f"{Fore.RED}Seed file not specified{Style.RESET_ALL}")
             raise ValueError("Seed file not specified")
-        
+
         # Ensure the seed file exists
         seed_file_path = os.path.join(input_dir, seed_file)
         if not os.path.exists(seed_file_path):
             print(f"{Fore.RED}Seed file not found: {seed_file_path}{Style.RESET_ALL}")
             raise ValueError(f"Seed file not found: {seed_file_path}")
-        
+
         print(f"{Fore.GREEN}Running with seed file: {seed_file}{Style.RESET_ALL}")
+        
+        # If a custom chat template is provided, use it
+        if custom_chat_template:
+            print(f"{Fore.GREEN}Using custom chat template{Style.RESET_ALL}")
+            # You'll need to implement a function to apply the custom template
+            # This could be part of your UnslothTrainer or a separate utility
+            apply_custom_chat_template(custom_chat_template)
+
         result = run(
             mode='custom',
             seed_file=seed_file,
@@ -265,7 +335,7 @@ def run_agent_chef():
             use_all_samples=data.get('useAllSamples', True),
             custom_prompts=data.get('customPrompts', {})
         )
-        
+
         if 'error' in result:
             print(f"{Fore.RED}Error: {result['error']}{Style.RESET_ALL}")
             return jsonify({'error': result['error']}), 400
@@ -405,6 +475,105 @@ def convert_to_json_parquet():
         logging.exception(f"Error converting to Parquet: {str(e)}")
         return jsonify({'error': str(e)}), 400
     
+@app.route('/api/slice_parquet', methods=['POST'])
+def slice_parquet():
+    data = request.json
+    filename = data.get('filename')
+    columns_to_remove = data.get('columns_to_remove', [])
+
+    if not filename or not columns_to_remove:
+        return jsonify({"error": "Filename and columns to remove are required"}), 400
+
+    try:
+        # Find the file in input_dir, output_dir, or salad_dir
+        for dir_path in [input_dir, output_dir, salad_dir]:
+            file_path = os.path.join(dir_path, filename)
+            if os.path.exists(file_path):
+                break
+        else:
+            return jsonify({"error": f"File not found: {filename}"}), 404
+
+        df = pd.read_parquet(file_path)
+        
+        # Ensure columns_to_remove only contains columns that exist in the DataFrame
+        columns_to_remove = [col for col in columns_to_remove if col in df.columns]
+        
+        # Remove the selected columns
+        df = df.drop(columns=columns_to_remove)
+
+        new_filename = f"{os.path.splitext(filename)[0]}_sliced.parquet"
+        new_file_path = os.path.join(edits_dir, new_filename)
+        df.to_parquet(new_file_path, engine='pyarrow')
+
+        return jsonify({
+            "message": f"Sliced parquet saved as {new_filename} in 'edits' directory",
+            "removed_columns": columns_to_remove
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/save_parquet_edits', methods=['POST'])
+def save_parquet_edits():
+    data = request.json
+    filename = data.get('filename')
+    edits = data.get('edits', {})
+
+    if not filename or not edits:
+        return jsonify({"error": "Filename and edits are required"}), 400
+
+    try:
+        # Find the file in input_dir, output_dir, or salad_dir
+        for dir_path in [input_dir, output_dir, salad_dir]:
+            file_path = os.path.join(dir_path, filename)
+            if os.path.exists(file_path):
+                break
+        else:
+            return jsonify({"error": f"File not found: {filename}"}), 404
+
+        df = pd.read_parquet(file_path)
+
+        for row_index, row_edits in edits.items():
+            for column, value in row_edits.items():
+                df.at[int(row_index), column] = value
+
+        df.to_parquet(file_path, engine='pyarrow')
+
+        return jsonify({"message": "Edits saved successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/save_parquet_as_new', methods=['POST'])
+def save_parquet_as_new():
+    data = request.json
+    filename = data.get('filename')
+    edits = data.get('edits', {})
+
+    if not filename or not edits:
+        return jsonify({"error": "Filename and edits are required"}), 400
+
+    try:
+        # Find the file in input_dir, output_dir, or salad_dir
+        for dir_path in [input_dir, output_dir, salad_dir]:
+            file_path = os.path.join(dir_path, filename)
+            if os.path.exists(file_path):
+                break
+        else:
+            return jsonify({"error": f"File not found: {filename}"}), 404
+
+        df = pd.read_parquet(file_path)
+
+        for row_index, row_edits in edits.items():
+            for column, value in row_edits.items():
+                df.at[int(row_index), column] = value
+
+        new_filename = f"{os.path.splitext(filename)[0]}_edited.parquet"
+        new_file_path = os.path.join(edits_dir, new_filename)
+        df.to_parquet(new_file_path, engine='pyarrow')
+
+        return jsonify({"message": f"Edits saved as new file: {new_filename} in 'edits' directory"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 @app.route('/api/generate_paraphrases', methods=['POST'])
 def generate_paraphrases():
     data = request.json
@@ -464,6 +633,10 @@ def combine_files():
     file_extension = file_types.pop()  # Get the file extension (including the dot)
     
     try:
+        # Create a new filename based on input file names
+        base_names = [os.path.splitext(file['name'])[0] for file in files]
+        new_filename = '_'.join(base_names)
+        
         if file_extension == '.parquet':
             # Special handling for parquet files
             dfs = []
@@ -485,13 +658,9 @@ def combine_files():
             combined_df = pd.concat(dfs, ignore_index=True)
             print(f"{Fore.GREEN}Combined DataFrame Shape: {combined_df.shape}{Style.RESET_ALL}")
             
-            # Create a unique name for the combined file
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            file_types = '_'.join(sorted(set([f['type'] for f in files])))
-            output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
-            output_file = os.path.join(input_dir, output_filename)
-            
             # Save the combined data
+            output_filename = f'{new_filename}.parquet'
+            output_file = os.path.join(salad_dir, output_filename)
             combined_df.to_parquet(output_file, engine='pyarrow')
             print(f"{Fore.GREEN}Saved combined file: {output_file}{Style.RESET_ALL}")
         else:
@@ -516,13 +685,9 @@ def combine_files():
             # Combine the data
             combined_content = '\n\n'.join(combined_data)
             
-            # Create a unique name for the combined file
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            file_types = '_'.join(sorted(set([f['type'] for f in files])))
-            output_filename = f'combined_{file_types}_{timestamp}{file_extension}'
-            output_file = os.path.join(input_dir, output_filename)
-            
             # Save the combined data
+            output_filename = f'{new_filename}{file_extension}'
+            output_file = os.path.join(salad_dir, output_filename)
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(combined_content)
             print(f"{Fore.GREEN}Saved combined file: {output_file}{Style.RESET_ALL}")
@@ -567,5 +732,81 @@ def list_prompt_sets():
     files = [f[:-5] for f in os.listdir(CUSTOM_PROMPTS_DIR) if f.endswith('.json')]
     return jsonify(files)
 
+@app.route('/api/unsloth_train', methods=['POST'])
+def unsloth_train():
+    data = request.json
+    print(f"{Fore.CYAN}Received Unsloth training data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    training_file = data.get('trainingFile')
+    validation_file = data.get('validationFile')
+    test_file = data.get('testFile')
+    huggingface_model = data.get('huggingfaceModel')
+    new_model_name = data.get('newModelName')
+    num_train_epochs = data.get('numTrainEpochs', 1)
+    per_device_train_batch_size = data.get('perDeviceTrainBatchSize', 2)
+    gradient_accumulation_steps = data.get('gradientAccumulationSteps', 4)
+    custom_chat_template = data.get('customChatTemplate')
+
+    try:
+        if not training_file:
+            raise ValueError("Training file must be specified")
+
+        if not huggingface_model:
+            raise ValueError("Hugging Face model not specified")
+
+        print(f"{Fore.GREEN}Initializing Unsloth trainer with model: {huggingface_model}{Style.RESET_ALL}")
+        
+        unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
+        
+        print(f"{Fore.GREEN}Starting Unsloth training{Style.RESET_ALL}")
+        output_dir = os.path.join(oven_dir, new_model_name)
+        result = unsloth_trainer.train(
+            model_name=os.path.join(huggingface_dir, huggingface_model),
+            train_dataset=os.path.join(input_dir, training_file),
+            validation_dataset=os.path.join(input_dir, validation_file) if validation_file else None,
+            test_dataset=os.path.join(input_dir, test_file) if test_file else None,
+            output_dir=output_dir,
+            max_steps=num_train_epochs * 100,
+            per_device_train_batch_size=per_device_train_batch_size,
+            gradient_accumulation_steps=gradient_accumulation_steps,
+            save_gguf=True,
+            quantization="q4_k_m",
+            custom_chat_template=custom_chat_template if custom_chat_template else None
+        )
+
+        return jsonify({
+            'message': 'Unsloth training completed successfully',
+            'training_result': result,
+            'output_dir': output_dir
+        })
+
+    except Exception as e:
+        error_msg = f"Error in Unsloth training: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
+@app.route('/api/unsloth_generate', methods=['POST'])
+def unsloth_generate():
+    data = request.json
+    model_dir = data.get('model_dir')
+    prompt = data.get('prompt')
+    max_new_tokens = data.get('max_new_tokens', 128)
+
+    try:
+        unsloth_trainer = UnslothTrainer(input_dir, output_dir)
+        unsloth_trainer.load_model(model_dir)
+        generated_text = unsloth_trainer.generate_text(prompt, max_new_tokens)
+
+        return jsonify({
+            'message': 'Text generated successfully',
+            'generated_text': generated_text
+        })
+
+    except Exception as e:
+        error_msg = f"Error in unsloth_generate: {str(e)}"
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)

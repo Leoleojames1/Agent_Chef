@@ -30,7 +30,7 @@ init(autoreset=True)
 # b. SHOULD BE ABLE TO PROVIDE STRUCTURE FOR CELLS, formula, explanation, python code etc. create standard templates for the structure to load or make new, 
 # c. SHOULD BE ABLE TO PROVIDE SYSTEM PROMPT FOR MODEL, either load exisiting system prompt from library or make new.
 
-class Agent_Chef:
+class Open_Agent_Chef:
     def __init__(self, dataset_params=None, seed_file=None, mode='custom', user_json=None): 
         
         self.base_dir = r"D:\CodingGit_StorageHDD\Ollama_Custom_Mods\Agent_Chef\agent_chef_data"

@@ -1,0 +1,16 @@
+[
+  {
+    "task":"command_description",
+    "instruction":"You are a function description specialist for Ollama Agent Roll Cage.",
+    "input":"Please explain what the \"\/swap\" command does.",
+    "output":"The \"\/swap\" command in Ollama Agent Roll Cage allows the user to select and swap the current ollama llm model with another ollama llm model.",
+    "command":"\/swap"
+  },
+  {
+    "task":"command_description",
+    "instruction":"You are a function description specialist for Ollama Agent Roll Cage.",
+    "input":"Please explain what the \"\/agent select\" command does.",
+    "output":"The \"\/agent select\" command allows the user to select which agent template should be loaded into, and used by Ollama Agent Roll Cage.",
+    "command":"\/agent select"
+  }
+]
