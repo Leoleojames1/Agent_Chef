@@ -34,25 +34,11 @@ fi
 echo "Ensuring port 3000 is available for React app..."
 sudo fuser -k 3000/tcp || true
 
-# Check if tmux session exists and kill it if it does
-if tmux has-session -t AgentChef 2>/dev/null; then
-    echo "Existing AgentChef tmux session found. Killing it..."
-    tmux kill-session -t AgentChef
-fi
+# Run the other processes in the background, with output redirected to /dev/null
+source $CONDA_ACTIVATE AgentChef && echo "Ollama is already running. No need to start it here." >/dev/null 2>&1 &
+source $CONDA_ACTIVATE AgentChef && cd ./react-app && PORT=3000 npm start >/dev/null 2>&1 &
 
-# Create a new tmux session
-tmux new-session -d -s AgentChef
-
-# Split the window into three panes
-tmux split-window -h
-tmux split-window -v
-
-# Send commands to each pane
-tmux send-keys -t 0 "source $CONDA_ACTIVATE AgentChef && echo 'Ollama is already running. No need to start it here.'" C-m
-tmux send-keys -t 1 "source $CONDA_ACTIVATE AgentChef && python app.py" C-m
-tmux send-keys -t 2 "source $CONDA_ACTIVATE AgentChef && cd ./react-app && PORT=3000 npm start" C-m
-
-# Attach to the tmux session
-tmux attach-session -t AgentChef
+# Run app.py in the foreground so you can see its output
+source $CONDA_ACTIVATE AgentChef && python app.py
 
 echo "AgentChef runner script completed."
