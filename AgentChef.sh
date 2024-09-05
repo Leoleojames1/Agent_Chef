@@ -78,7 +78,19 @@ echo "Installing npm packages..."
 if [ -d "./react-app" ]; then
     cd ./react-app
     if [ -f "package.json" ]; then
-        npm install
+        echo "Ensuring correct permissions for npm..."
+        sudo chown -R $(whoami) .
+        sudo chown -R $(whoami) "$HOME/.npm"
+        
+        echo "Running npm install with --no-bin-links..."
+        npm install --no-bin-links
+        
+        if [ $? -ne 0 ]; then
+            echo "npm install failed. Please try running the following commands manually:"
+            echo "cd ~/Agent_Chef/react-app"
+            echo "npm install --no-bin-links"
+            echo "If issues persist, you may need to run: npm cache clean --force"
+        fi
     else
         echo "package.json not found in react-app directory. Skipping npm package installation."
     fi
@@ -86,6 +98,7 @@ if [ -d "./react-app" ]; then
 else
     echo "react-app directory not found. Skipping npm package installation."
 fi
+
 
 # Set Ollama environment variables
 export OLLAMA_NUM_PARALLEL=2
@@ -146,3 +159,12 @@ tmux attach-session -t AgentChef
 
 echo "All components started in tmux panes. Please check the opened tmux window."
 echo "Script completed."
+
+echo "
+IMPORTANT: If you encountered npm permission issues, please try the following steps manually:
+1. cd ~/Agent_Chef/react-app
+2. sudo chown -R $(whoami) .
+3. sudo chown -R $(whoami) ~/.npm
+4. npm install --no-bin-links
+5. If issues persist, run: npm cache clean --force
+"
