@@ -17,44 +17,25 @@ is_port_in_use() {
     ss -tuln | grep -q :$1
 }
 
-# Function to kill tmux session
-kill_tmux_session() {
-    session_name="AgentChef"
-    
-    # Try pkill first
-    if pkill -f "tmux.*$session_name" 2>/dev/null; then
-        echo "Killed tmux session using pkill."
-    else
-        # If pkill fails, try kill -9
-        tmux_pids=$(pgrep -f "tmux.*$session_name")
-        if [ -n "$tmux_pids" ]; then
-            if sudo kill -9 $tmux_pids 2>/dev/null; then
-                echo "Killed tmux session using kill -9."
-            else
-                echo "Failed to kill tmux session. You may need to manually terminate it."
-            fi
-        else
-            echo "No existing tmux session found."
-        fi
-    fi
-}
-
 # Stop Ollama service and free up port 11434
 echo "Stopping Ollama service and freeing up port 11434..."
-sudo systemctl stop ollama || echo "Failed to stop Ollama service. It may not be running."
-sudo fuser -k 11434/tcp || echo "No process using port 11434."
+sudo systemctl stop ollama
+sudo fuser -k 11434/tcp
 
 # Free up port 3000 for React app
 echo "Freeing up port 3000 for React app..."
-sudo fuser -k 3000/tcp || echo "No process using port 3000."
+sudo fuser -k 3000/tcp
 
 # Start Ollama service
 echo "Starting Ollama service..."
-sudo systemctl restart ollama
+sudo systemctl start ollama
 sleep 2  # Give Ollama some time to start
 
-# Kill existing tmux session
-kill_tmux_session
+# Check if tmux session exists and kill it if it does
+if tmux has-session -t AgentChef 2>/dev/null; then
+    echo "Existing AgentChef tmux session found. Killing it..."
+    tmux kill-session -t AgentChef
+fi
 
 # Create a new tmux session
 tmux new-session -d -s AgentChef
