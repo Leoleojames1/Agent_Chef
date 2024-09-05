@@ -12,24 +12,27 @@ export OLLAMA_NUM_PARALLEL=2
 export OLLAMA_MAX_LOADED_MODELS=2
 export OLLAMA_FLASH_ATTENTION=1
 
-# Function to check if a port is in use
-is_port_in_use() {
-    ss -tuln | grep -q :$1
+# Function to check if Ollama is running
+is_ollama_running() {
+    if systemctl is-active --quiet ollama; then
+        return 0
+    else
+        return 1
+    fi
 }
 
-# Stop Ollama service and free up port 11434
-echo "Stopping Ollama service and freeing up port 11434..."
-sudo systemctl stop ollama
-sudo fuser -k 11434/tcp
+# Check if Ollama is running, start if not
+if is_ollama_running; then
+    echo "Ollama is already running."
+else
+    echo "Starting Ollama service..."
+    sudo systemctl start ollama
+    sleep 2  # Give Ollama some time to start
+fi
 
 # Free up port 3000 for React app
 echo "Freeing up port 3000 for React app..."
-sudo fuser -k 3000/tcp
-
-# Start Ollama service
-echo "Starting Ollama service..."
-sudo systemctl start ollama
-sleep 2  # Give Ollama some time to start
+sudo fuser -k 3000/tcp || echo "No process was using port 3000."
 
 # Check if tmux session exists and kill it if it does
 if tmux has-session -t AgentChef 2>/dev/null; then
@@ -45,7 +48,7 @@ tmux split-window -h
 tmux split-window -v
 
 # Send commands to each pane
-tmux send-keys -t 0 "source $CONDA_ACTIVATE AgentChef && ollama serve" C-m
+tmux send-keys -t 0 "source $CONDA_ACTIVATE AgentChef && echo 'Ollama is already running. No need to start it here.'" C-m
 tmux send-keys -t 1 "source $CONDA_ACTIVATE AgentChef && python app.py" C-m
 tmux send-keys -t 2 "source $CONDA_ACTIVATE AgentChef && cd ./react-app && PORT=3001 npm start" C-m
 
