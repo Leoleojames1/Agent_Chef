@@ -653,65 +653,64 @@ class TemplateManager:
     def __init__(self, input_dir):
         self.input_dir = input_dir
         self.templates_file = os.path.join(input_dir, 'templates.json')
-        print(f"Templates file path: {self.templates_file}")  # Add this line for debugging
+        self.logger = logging.getLogger(__name__)
+        self.logger.info(f"Templates file path: {self.templates_file}")
         self.templates = self.load_templates()
 
     def load_templates(self):
-        if os.path.exists(self.templates_file):
-            with open(self.templates_file, 'r') as f:
-                templates = json.load(f)
-        else:
-            templates = {
-                "chat": ["instruction", "input", "output"],
-                "chat_modeltag": ["instruction", "input", "output"],
-                "instruct": ["task", "instruction", "input", "output", "generationModel"],
-                "instruct_modeltag": ["task", "instruction", "input", "output"],
-                "commander": ["task", "instruction", "input", "output", "command"],
-                "commander_modeltag": ["task", "instruction", "input", "output", "command", "generationModel"],                
-                "commander_testset": ["task", "instruction", "input", "command"],
-                "commander_testset_modeltag": ["task", "instruction", "input", "command", "generationModel"],
-                "aiConcept_instruct": ["task", "instruction", "input", "output", "concept", "definition", "useCase", "example"],   
-                "latexSeries": ["task", "instruction", "input", "output", "formula", "solution"],
-                "latexTheory": ["task", "instruction", "input", "output", "theory", "explanation"],
-                "latexMath" : ["task", "instruction", "input", "output", "formula", "solution", "theory", "explanation"],
-                "ontology1": ["task", "instruction", "input", "output", "ontology", "description"],
-                "ontology2": ["task", "instruction", "input", "output", "ontology", "description", "chainOfThought"],
-                "ontology3": ["task", "instruction", "input", "output", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
-                "mathPythonFusion": ["task", "instruction", "input", "output", "formula", "solution", "python", "example"],
-                "pythonBase": ["task", "instruction", "input", "output", "code", "description", "args", "returns"],
-                "pythonOllama": ["task", "instruction", "input", "output", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],   
-            }
+        try:
+            if os.path.exists(self.templates_file):
+                with open(self.templates_file, 'r') as f:
+                    templates = json.load(f)
+                self.logger.info(f"Successfully loaded templates from {self.templates_file}")
+            else:
+                self.logger.warning(f"Templates file not found at {self.templates_file}. Creating default templates.")
+                templates = self.create_default_templates()
+                self.save_templates(templates)
             
-            # "commander_extra": ["request", "response", "commandName", "task", "args", "clarification", "confirmation"],
-            # "aiConcept": ["request", "response", "concept", "definition", "useCase", "example"],      
-            # "functionCall": ["request", "response", "explain", "task",],
-            # "intention": ["request", "response", "commandName", "task", "args", "enumerate", "validate", "describe"],
-            #     "latexSeries": ["request", "response", "formula", "solution"],
-            #     "latexTheory": ["request", "response", "theory", "explanation"],
-            #     "latexMath" : ["request", "response", "formula", "solution", "theory", "explanation"],
-            #     "mathPythonFusion": ["request", "response", "formula", "solution", "python", "example"],
-            #     "pythonBase": ["request", "response", "code", "description", "args", "returns"],
-            #     "pythonOllama": ["request", "response", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],
-            #     "ontology1": ["request", "response", "ontology", "description"],
-            #     "ontology2": ["request", "response", "ontology", "description", "chainOfThought"],
-            #     "ontology3": ["request", "response", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
-            # }
+            # Ensure all template values are lists
+            for key, value in templates.items():
+                if not isinstance(value, list):
+                    templates[key] = list(value) if isinstance(value, (tuple, set)) else [str(value)]
             
-            self.save_templates(templates)
-        
-        # Ensure all template values are lists
-        for key, value in templates.items():
-            if not isinstance(value, list):
-                templates[key] = list(value) if isinstance(value, (tuple, set)) else [str(value)]
-        
-        return templates
+            return templates
+        except Exception as e:
+            self.logger.error(f"Error loading templates: {str(e)}")
+            return self.create_default_templates()
+
+    def create_default_templates(self):
+        return {
+            "chat": ["instruction", "input", "output"],
+            "chat_modeltag": ["instruction", "input", "output"],
+            "instruct": ["task", "instruction", "input", "output", "generationModel"],
+            "instruct_modeltag": ["task", "instruction", "input", "output"],
+            "commander": ["task", "instruction", "input", "output", "command"],
+            "commander_modeltag": ["task", "instruction", "input", "output", "command", "generationModel"],                
+            "commander_testset": ["task", "instruction", "input", "command"],
+            "commander_testset_modeltag": ["task", "instruction", "input", "command", "generationModel"],
+            "aiConcept_instruct": ["task", "instruction", "input", "output", "concept", "definition", "useCase", "example"],   
+            "latexSeries": ["task", "instruction", "input", "output", "formula", "solution"],
+            "latexTheory": ["task", "instruction", "input", "output", "theory", "explanation"],
+            "latexMath" : ["task", "instruction", "input", "output", "formula", "solution", "theory", "explanation"],
+            "ontology1": ["task", "instruction", "input", "output", "ontology", "description"],
+            "ontology2": ["task", "instruction", "input", "output", "ontology", "description", "chainOfThought"],
+            "ontology3": ["task", "instruction", "input", "output", "ontology", "description", "application", "actions", "chainOfThought","self_prompts"],
+            "mathPythonFusion": ["task", "instruction", "input", "output", "formula", "solution", "python", "example"],
+            "pythonBase": ["task", "instruction", "input", "output", "code", "description", "args", "returns"],
+            "pythonOllama": ["task", "instruction", "input", "output", "code", "description", "args", "returns", "actions", "chainOfThought", "prompts"],   
+        }
+
+    def save_templates(self, templates):
+        try:
+            os.makedirs(os.path.dirname(self.templates_file), exist_ok=True)
+            with open(self.templates_file, 'w') as f:
+                json.dump(templates, f, indent=2)
+            self.logger.info(f"Successfully saved templates to {self.templates_file}")
+        except Exception as e:
+            self.logger.error(f"Error saving templates: {str(e)}")
 
     def get_templates(self):
         return self.templates
-
-    def save_templates(self, templates):
-        with open(self.templates_file, 'w') as f:
-            json.dump(templates, f, indent=2)
 
     def create_template(self, template_name, template_fields):
         if template_name in self.templates:
@@ -721,7 +720,10 @@ class TemplateManager:
         return self.templates[template_name]
 
     def get_template(self, template_name):
-        return self.templates.get(template_name)
+        template = self.templates.get(template_name)
+        if template is None:
+            self.logger.warning(f"Template '{template_name}' not found")
+        return template
 
     def add_template(self, template_name, template_fields):
         if template_name in self.templates:
