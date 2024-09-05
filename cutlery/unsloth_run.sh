@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Check if Unsloth environment is set up
-check_unsloth_env() {
+# Check if AgentChef environment is set up
+check_agentchef_env() {
     if [ ! -d "$HOME/miniconda3" ] || \
-       ! conda info --envs | grep -q "unsloth_env" || \
-       ! conda run -n unsloth_env pip list | grep -q "unsloth"; then
+       ! conda info --envs | grep -q "AgentChef" || \
+       ! conda run -n AgentChef python --version | grep -q "Python 3.11"; then
         return 1
     fi
     return 0
 }
 
 # Run the installer if the environment is not set up
-if ! check_unsloth_env; then
-    echo "Unsloth environment not found or incomplete. Running installer..."
+if ! check_agentchef_env; then
+    echo "AgentChef environment not found or incomplete. Running installer..."
     bash /path/to/unsloth_install.sh
     if [ $? -ne 0 ]; then
         echo "Installation failed. Please check the error messages and try again."
@@ -20,8 +20,8 @@ if ! check_unsloth_env; then
     fi
 fi
 
-# Activate the Unsloth environment
-source $HOME/miniconda3/bin/activate unsloth_env
+# Activate the AgentChef environment
+source $HOME/miniconda3/bin/activate AgentChef
 
 # Run the Unsloth training script
 echo "Running Unsloth training..."

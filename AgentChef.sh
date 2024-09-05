@@ -1,17 +1,33 @@
 #!/bin/bash
 
+set -e  # Exit immediately if a command exits with a non-zero status.
+
+CONDA_PATH="$HOME/miniconda3/bin/conda"
+CONDA_ACTIVATE="$HOME/miniconda3/bin/activate"
+
+echo "Starting AgentChef.sh script"
+
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to check Unsloth environment
-check_unsloth_env() {
-    if [ ! -d "$HOME/miniconda3" ] || ! conda info --envs | grep -q "unsloth_env" || ! conda run -n unsloth_env pip list | grep -q "unsloth"; then
+# Function to check AgentChef environment
+check_agentchef_env() {
+    if [ ! -d "$HOME/miniconda3" ] || \
+       ! $CONDA_PATH info --envs | grep -q "AgentChef" || \
+       ! $CONDA_PATH run -n AgentChef python --version | grep -q "Python 3.10"; then
         return 1
     fi
     return 0
 }
+
+echo "Checking Miniconda..."
+$CONDA_PATH --version
+
+# Initialize conda for bash
+echo "Initializing conda..."
+source $HOME/miniconda3/etc/profile.d/conda.sh
 
 # Check and install Ollama if necessary
 if ! command_exists ollama; then
@@ -19,25 +35,19 @@ if ! command_exists ollama; then
     curl https://ollama.ai/install.sh | sh
 fi
 
-# Check and install Miniconda if necessary
-if [ ! -d "$HOME/miniconda3" ]; then
-    echo "Miniconda not found. Installing Miniconda..."
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-    bash miniconda.sh -b -p $HOME/miniconda3
-    rm miniconda.sh
-    echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bashrc
-    source ~/.bashrc
-fi
-
-# Set up Unsloth environment if necessary
-if ! check_unsloth_env; then
-    echo "Unsloth environment not found or incomplete. Setting up Unsloth..."
-    source $HOME/miniconda3/bin/activate
-    conda create --name unsloth_env python=3.11 pytorch-cuda=12.1 pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers -y
-    conda activate unsloth_env
+# Set up AgentChef environment if necessary
+if ! check_agentchef_env; then
+    echo "AgentChef environment not found or incomplete. Setting up AgentChef..."
+    $CONDA_PATH create --name AgentChef python=3.10 -y
+    source $CONDA_ACTIVATE AgentChef
+    $CONDA_PATH install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia -y
     pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+    pip install xformers==0.0.20
     pip install --no-deps trl peft accelerate bitsandbytes
-    echo "Unsloth environment setup complete."
+    echo "AgentChef environment setup complete."
+else
+    echo "AgentChef environment found. Activating..."
+    source $CONDA_ACTIVATE AgentChef
 fi
 
 # Set Ollama environment variables
@@ -45,11 +55,17 @@ export OLLAMA_NUM_PARALLEL=2
 export OLLAMA_MAX_LOADED_MODELS=2
 export OLLAMA_FLASH_ATTENTION=1
 
-# Activate Conda environment
-source $HOME/miniconda3/bin/activate raglocal
+# Start the application components
+echo "Starting Ollama server..."
+ollama serve &
 
-# Start Windows Terminal with multiple panes
-wt.exe --maximized \
-    -p "Agent Chef" bash -c "ollama serve" \; \
-    split-pane -d "." bash -c "python app.py" \; \
-    split-pane -d "./react-app" bash -c "npm start"
+echo "Starting Python app..."
+python app.py &
+
+echo "Starting React app..."
+cd ./react-app && npm start &
+
+# Wait for all background processes to finish
+wait
+
+echo "Script completed."
