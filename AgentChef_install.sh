@@ -22,7 +22,7 @@ fi
 check_agentchef_env() {
     if [ ! -d "$HOME/miniconda3" ] || \
        ! $CONDA_PATH info --envs | grep -q "AgentChef" || \
-       ! $CONDA_PATH run -n AgentChef python --version | grep -q "Python 3.10"; then
+       ! $CONDA_PATH run -n AgentChef python --version | grep -q "Python 3.11"; then
         return 1
     fi
     return 0
@@ -51,13 +51,13 @@ fi
 # Set up AgentChef environment if necessary
 if ! check_agentchef_env; then
     echo "AgentChef environment not found or incomplete. Setting up AgentChef..."
-    $CONDA_PATH create --name AgentChef python=3.10 -y
+    $CONDA_PATH create --name AgentChef python=3.11 -y
     source $CONDA_ACTIVATE AgentChef
-    $CONDA_PATH install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia -y
+    $CONDA_PATH install pytorch torchvision torchaudio cpuonly -c pytorch -y
     pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
-    pip install xformers==0.0.20
+    pip install xformers
     pip install --no-deps trl peft accelerate bitsandbytes
-    pip install flask  # Ensure Flask is installed
+    pip install flask flask-cors
     echo "AgentChef environment setup complete."
 else
     echo "AgentChef environment found. Activating..."
@@ -70,7 +70,7 @@ if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt
 else
     echo "requirements.txt not found. Installing essential packages..."
-    pip install flask  # Ensure Flask is installed even if requirements.txt is missing
+    pip install flask flask-cors
 fi
 
 # Install npm packages
@@ -82,8 +82,8 @@ if [ -d "./react-app" ]; then
         sudo chown -R $(whoami) .
         sudo chown -R $(whoami) "$HOME/.npm"
         
-        echo "Running npm install with --no-bin-links..."
-        npm install --no-bin-links
+        echo "Running npm install..."
+        npm install
         
         if [ $? -eq 0 ]; then
             echo "Running npm audit fix..."
@@ -91,7 +91,7 @@ if [ -d "./react-app" ]; then
         else
             echo "npm install failed. Please try running the following commands manually:"
             echo "cd ~/Agent_Chef/react-app"
-            echo "npm install --no-bin-links"
+            echo "npm install"
             echo "npm audit fix"
             echo "If issues persist, you may need to run: npm cache clean --force"
         fi

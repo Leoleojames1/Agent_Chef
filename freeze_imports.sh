@@ -19,6 +19,7 @@ if [ -d "./react-app" ]; then
     else
         echo "package.json not found in react-app directory"
     fi
+    cd ..
 else
     echo "react-app directory not found"
 fi
