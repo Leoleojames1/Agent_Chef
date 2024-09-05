@@ -5,7 +5,7 @@ set -e  # Exit immediately if a command exits with a non-zero status.
 CONDA_PATH="$HOME/miniconda3/bin/conda"
 CONDA_ACTIVATE="$HOME/miniconda3/bin/activate"
 
-echo "Starting AgentChef.sh script"
+echo "Starting AgentChef installation script"
 
 # Function to check if a command exists
 command_exists() {
@@ -85,10 +85,14 @@ if [ -d "./react-app" ]; then
         echo "Running npm install with --no-bin-links..."
         npm install --no-bin-links
         
-        if [ $? -ne 0 ]; then
+        if [ $? -eq 0 ]; then
+            echo "Running npm audit fix..."
+            npm audit fix
+        else
             echo "npm install failed. Please try running the following commands manually:"
             echo "cd ~/Agent_Chef/react-app"
             echo "npm install --no-bin-links"
+            echo "npm audit fix"
             echo "If issues persist, you may need to run: npm cache clean --force"
         fi
     else
@@ -99,72 +103,4 @@ else
     echo "react-app directory not found. Skipping npm package installation."
 fi
 
-
-# Set Ollama environment variables
-export OLLAMA_NUM_PARALLEL=2
-export OLLAMA_MAX_LOADED_MODELS=2
-export OLLAMA_FLASH_ATTENTION=1
-
-# Function to check if port 11434 is in use
-is_port_in_use() {
-    netstat -tuln | grep -q :11434
-}
-
-# Start the application components
-echo "Checking Ollama service status..."
-if sudo systemctl is-active --quiet ollama; then
-    echo "Ollama service is already running. Stopping it..."
-    sudo systemctl stop ollama
-    sleep 2
-fi
-
-if is_port_in_use; then
-    echo "Port 11434 is still in use. Attempting to free it..."
-    sudo fuser -k 11434/tcp
-    sleep 2
-fi
-
-# Start the application components
-echo "Checking Ollama service status..."
-if sudo systemctl is-active --quiet ollama; then
-    echo "Ollama service is already running. Stopping it..."
-    sudo systemctl stop ollama
-    sleep 2
-fi
-
-if is_port_in_use; then
-    echo "Port 11434 is still in use. Attempting to free it..."
-    sudo fuser -k 11434/tcp
-    sleep 2
-fi
-
-echo "Starting Ollama service..."
-sudo systemctl start ollama
-sleep 2  # Give Ollama some time to start
-
-# Create a new tmux session
-tmux new-session -d -s AgentChef
-
-# Split the window into three panes
-tmux split-window -h
-tmux split-window -v
-
-# Send commands to each pane
-tmux send-keys -t 0 "source $CONDA_ACTIVATE AgentChef && ollama serve" C-m
-tmux send-keys -t 1 "source $CONDA_ACTIVATE AgentChef && python app.py" C-m
-tmux send-keys -t 2 "source $CONDA_ACTIVATE AgentChef && cd ./react-app && npm start" C-m
-
-# Attach to the tmux session
-tmux attach-session -t AgentChef
-
-echo "All components started in tmux panes. Please check the opened tmux window."
-echo "Script completed."
-
-echo "
-IMPORTANT: If you encountered npm permission issues, please try the following steps manually:
-1. cd ~/Agent_Chef/react-app
-2. sudo chown -R $(whoami) .
-3. sudo chown -R $(whoami) ~/.npm
-4. npm install --no-bin-links
-5. If issues persist, run: npm cache clean --force
-"
+echo "AgentChef installation completed."
