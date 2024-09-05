@@ -20,11 +20,12 @@ conda activate AgentChef
 echo "Installing PyTorch and other dependencies..."
 conda install pytorch pytorch-cuda=12.1 cudatoolkit -c pytorch -c nvidia -y
 
-if ! pip list | grep -q "unsloth"; then
-    echo "Installing Unsloth and dependencies..."
-    pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
-    pip install xformers
-    pip install --no-deps trl peft accelerate bitsandbytes
-fi
+echo "Cloning Unsloth repository..."
+git clone https://github.com/unslothai/unsloth.git $HOME/unsloth
+
+echo "Installing Unsloth and dependencies..."
+pip install -e $HOME/unsloth
+pip install xformers
+pip install --no-deps trl peft accelerate bitsandbytes
 
 echo "AgentChef environment setup complete."
