@@ -12,6 +12,12 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Check if tmux is installed
+if ! command_exists tmux; then
+    echo "tmux is not installed. Installing tmux..."
+    sudo apt-get update && sudo apt-get install -y tmux
+fi
+
 # Function to check AgentChef environment
 check_agentchef_env() {
     if [ ! -d "$HOME/miniconda3" ] || \
@@ -105,21 +111,38 @@ if is_port_in_use; then
     sleep 2
 fi
 
+# Start the application components
+echo "Checking Ollama service status..."
+if sudo systemctl is-active --quiet ollama; then
+    echo "Ollama service is already running. Stopping it..."
+    sudo systemctl stop ollama
+    sleep 2
+fi
+
+if is_port_in_use; then
+    echo "Port 11434 is still in use. Attempting to free it..."
+    sudo fuser -k 11434/tcp
+    sleep 2
+fi
+
 echo "Starting Ollama service..."
 sudo systemctl start ollama
 sleep 2  # Give Ollama some time to start
 
-echo "Starting Python app..."
-python app.py &
+# Create a new tmux session
+tmux new-session -d -s AgentChef
 
-echo "Starting React app..."
-if command_exists npm; then
-    cd ./react-app && npm start &
-else
-    echo "npm not found. Please install Node.js and npm to run the React app."
-fi
+# Split the window into three panes
+tmux split-window -h
+tmux split-window -v
 
-# Wait for all background processes to finish
-wait
+# Send commands to each pane
+tmux send-keys -t 0 "source $CONDA_ACTIVATE AgentChef && ollama serve" C-m
+tmux send-keys -t 1 "source $CONDA_ACTIVATE AgentChef && python app.py" C-m
+tmux send-keys -t 2 "source $CONDA_ACTIVATE AgentChef && cd ./react-app && npm start" C-m
 
+# Attach to the tmux session
+tmux attach-session -t AgentChef
+
+echo "All components started in tmux panes. Please check the opened tmux window."
 echo "Script completed."
