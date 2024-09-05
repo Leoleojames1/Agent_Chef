@@ -21,7 +21,7 @@ class UnslothTrainer:
         return script_path
 
     def _find_unsloth_path(self):
-        unsloth_path = os.path.abspath(os.path.join(self.project_dir, '..', 'unsloth'))
+        unsloth_path = os.path.expanduser('~/unsloth')
         if not os.path.exists(unsloth_path):
             raise FileNotFoundError(f"Local Unsloth directory not found at {unsloth_path}")
         return unsloth_path
@@ -29,24 +29,18 @@ class UnslothTrainer:
     def train(self, model_name, train_dataset, validation_dataset, test_dataset=None, output_dir="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
         
-        # Convert Windows paths to WSL paths
-        wsl_train_dataset = self._to_wsl_path(train_dataset)
-        wsl_validation_dataset = self._to_wsl_path(validation_dataset) if validation_dataset else None
-        wsl_test_dataset = self._to_wsl_path(test_dataset) if test_dataset else None
-        wsl_output_dir = self._to_wsl_path(os.path.join(self.output_dir, output_dir))
-        
         cli_args = [
             "python",
-            self._to_wsl_path(self.unsloth_script_path),
+            self.unsloth_script_path,
             "--model_name", model_name,
-            "--dataset", wsl_train_dataset,
-            "--output_dir", wsl_output_dir,
+            "--dataset", train_dataset,
+            "--output_dir", output_dir,
         ]
 
-        if wsl_validation_dataset:
-            cli_args.extend(["--validation_dataset", wsl_validation_dataset])
-        if wsl_test_dataset:
-            cli_args.extend(["--test_dataset", wsl_test_dataset])
+        if validation_dataset:
+            cli_args.extend(["--validation_dataset", validation_dataset])
+        if test_dataset:
+            cli_args.extend(["--test_dataset", test_dataset])
 
         # Add any additional kwargs as CLI arguments
         for key, value in kwargs.items():
@@ -56,12 +50,9 @@ class UnslothTrainer:
             elif value is not None:
                 cli_args.extend([f"--{key}", str(value)])
 
-        # Construct the WSL command
-        wsl_command = ["wsl", "bash", "/mnt/c/path/to/your/unsloth_run.sh"] + cli_args
-
         # Run the command and capture output in real-time
         process = subprocess.Popen(
-            wsl_command,
+            cli_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True
@@ -87,31 +78,50 @@ class UnslothTrainer:
         else:
             return {"message": "Training completed successfully", "output": "\n".join(output)}
 
-    def _to_wsl_path(self, windows_path):
-        # Convert Windows path to WSL path
-        drive, path = os.path.splitdrive(windows_path)
-        return f"/mnt/{drive.lower().rstrip(':')}{path.replace(os.sep, '/')}"
-
     def save_gguf(self, model_path, output_dir, quantization_method="q4_k_m"):
         self.logger.info(f"Saving GGUF model to {output_dir} with quantization {quantization_method}")
         
         cli_args = [
+            "python",
+            self.unsloth_script_path,
             "--model_name", model_path,
             "--save_gguf",
-            "--save_path", output_dir,
+            "--output_dir", output_dir,
             "--quantization", quantization_method
         ]
 
-        return self._run_unsloth_cli(cli_args)
+        return self._run_command(cli_args)
 
     def push_to_hub(self, model_path, repo_id, token):
         self.logger.info(f"Pushing model to Hugging Face Hub: {repo_id}")
         
         cli_args = [
+            "python",
+            self.unsloth_script_path,
             "--model_name", model_path,
-            "--push_model",
-            "--hub_path", repo_id,
+            "--push_to_hub",
+            "--hub_model_id", repo_id,
             "--hub_token", token
         ]
 
-        return self._run_unsloth_cli(cli_args)
+        return self._run_command(cli_args)
+
+    def _run_command(self, cli_args):
+        process = subprocess.Popen(
+            cli_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+
+        output = []
+        for line in process.stdout:
+            self.logger.info(line.strip())
+            output.append(line.strip())
+
+        process.wait()
+
+        if process.returncode != 0:
+            return {"error": "Command failed", "output": "\n".join(output)}
+        else:
+            return {"message": "Command completed successfully", "output": "\n".join(output)}
