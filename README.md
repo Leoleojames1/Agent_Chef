@@ -2,7 +2,7 @@
 
 <img
 src="docs/icons/Agent_Chef_logo.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
+  style="display: inline-block; margin: 0 auto; max-width: 15px">
   
 <p align="center">
   <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
