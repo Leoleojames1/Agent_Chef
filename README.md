@@ -8,8 +8,8 @@ src="docs/agent_chef_poster.jpeg"
   <img src="docs/assets/icons/ollama_agent_roll_cage_icon.png" alt="OARC LOGO" width="200"/>
 </p>
 <p align="center">
-  <a href="https://ko-fi.com/theborch"><img src="docs/assets/icons/buy me a coffee button.png" height="48"></a>
-  <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/assets/icons/Discord button.png" height="48"></a>
+  <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
+  <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/icons/Discord button.png" height="48"></a>
 </p>
 
 🍲Agent Chef is a powerful tool designed for dataset refinement, structuring, and generation. It empowers users to create high-quality, domain-specific datasets for fine-tuning AI models.🥘
