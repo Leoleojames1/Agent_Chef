@@ -31,7 +31,7 @@ src="docs/icons/agent_chef_ui_4.png"
 After setup, manually construct your dataset group formatting by wrapping each data point in $("data") wrappers.
 
 <img
-src="docs/icons/agent_chef_ui_7.png"
+src="docs/icons/OARC_commander.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
   
 These group tags allow agent chef to splice the data out into the correct parquet cells for dataset construction. The automatic formatting tool is currently experimental however it attempts to generate the $("data") tags from the template formatting and inference. Only use this feature if you are daring. 
