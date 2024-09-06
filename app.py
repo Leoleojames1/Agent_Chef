@@ -738,14 +738,11 @@ def unsloth_train():
     print(f"{Fore.CYAN}Received Unsloth training data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
     
     training_file = data.get('trainingFile')
-    validation_file = data.get('validationFile')
-    test_file = data.get('testFile')
     huggingface_model = data.get('huggingfaceModel')
     new_model_name = data.get('newModelName')
     num_train_epochs = data.get('numTrainEpochs', 1)
     per_device_train_batch_size = data.get('perDeviceTrainBatchSize', 2)
     gradient_accumulation_steps = data.get('gradientAccumulationSteps', 4)
-    custom_chat_template = data.get('customChatTemplate')
 
     try:
         if not training_file:
@@ -763,15 +760,12 @@ def unsloth_train():
         result = unsloth_trainer.train(
             model_name=os.path.join(huggingface_dir, huggingface_model),
             train_dataset=os.path.join(input_dir, training_file),
-            validation_dataset=os.path.join(input_dir, validation_file) if validation_file else None,
-            test_dataset=os.path.join(input_dir, test_file) if test_file else None,
             output_dir=output_dir,
             max_steps=num_train_epochs * 100,
             per_device_train_batch_size=per_device_train_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
             save_gguf=True,
             quantization="q4_k_m",
-            custom_chat_template=custom_chat_template if custom_chat_template else None
         )
 
         return jsonify({
