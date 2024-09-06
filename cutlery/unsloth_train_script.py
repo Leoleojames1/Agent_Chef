@@ -1,3 +1,4 @@
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from unsloth import FastLanguageModel
 from unsloth import to_sharegpt, standardize_sharegpt
 from unsloth import apply_chat_template
@@ -31,10 +32,10 @@ def main():
     args = parser.parse_args()
 
     print('=== Loading Model ===')
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=args.model_name,
-        max_seq_length=args.max_seq_length,
-        dtype=None,
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        torch_dtype=torch.float16 if args.load_in_4bit else None,
         load_in_4bit=args.load_in_4bit,
     )
 

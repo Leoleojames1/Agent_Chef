@@ -35,6 +35,7 @@ class UnslothTrainer:
             "--model_name", model_name,
             "--dataset", train_dataset,
             "--output_dir", output_dir,
+            "--load_in_4bit",  # Add this if you're using 4-bit quantization
         ]
 
         if validation_dataset:
@@ -77,51 +78,3 @@ class UnslothTrainer:
             return {"error": "Training failed", "output": "\n".join(output)}
         else:
             return {"message": "Training completed successfully", "output": "\n".join(output)}
-
-    def save_gguf(self, model_path, output_dir, quantization_method="q4_k_m"):
-        self.logger.info(f"Saving GGUF model to {output_dir} with quantization {quantization_method}")
-        
-        cli_args = [
-            "python",
-            self.unsloth_script_path,
-            "--model_name", model_path,
-            "--save_gguf",
-            "--output_dir", output_dir,
-            "--quantization", quantization_method
-        ]
-
-        return self._run_command(cli_args)
-
-    def push_to_hub(self, model_path, repo_id, token):
-        self.logger.info(f"Pushing model to Hugging Face Hub: {repo_id}")
-        
-        cli_args = [
-            "python",
-            self.unsloth_script_path,
-            "--model_name", model_path,
-            "--push_to_hub",
-            "--hub_model_id", repo_id,
-            "--hub_token", token
-        ]
-
-        return self._run_command(cli_args)
-
-    def _run_command(self, cli_args):
-        process = subprocess.Popen(
-            cli_args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True
-        )
-
-        output = []
-        for line in process.stdout:
-            self.logger.info(line.strip())
-            output.append(line.strip())
-
-        process.wait()
-
-        if process.returncode != 0:
-            return {"error": "Command failed", "output": "\n".join(output)}
-        else:
-            return {"message": "Command completed successfully", "output": "\n".join(output)}
