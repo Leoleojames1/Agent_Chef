@@ -5,9 +5,6 @@ src="docs/agent_chef_poster.jpeg"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
 
 <p align="center">
-  <img src="docs/assets/icons/ollama_agent_roll_cage_icon.png" alt="OARC LOGO" width="200"/>
-</p>
-<p align="center">
   <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
   <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/icons/Discord button.png" height="48"></a>
 </p>
