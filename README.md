@@ -1,13 +1,9 @@
 # 🍲Agent Chef (AC) V0.1.1🥘
 
 <img
-src="docs/Agent_Chef_logo.png"
+src="docs/icons/Agent_Chef_logo.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
-
-<img
-src="docs/agent_chef_poster.jpeg"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
+  
 <p align="center">
   <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
   <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/icons/Discord button.png" height="48"></a>
@@ -29,6 +25,11 @@ src="docs/agent_chef_poster.jpeg"
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
+
+<img
+src="docs/agent_chef_poster.jpeg"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+
 
 ## Setup
 Start by selecting your ollama model, system prompt, number of duplicates, and the parquet column template format.
