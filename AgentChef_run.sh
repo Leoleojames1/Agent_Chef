@@ -34,6 +34,10 @@ fi
 echo "Ensuring port 3000 is available for React app..."
 sudo fuser -k 3000/tcp || true
 
+# Ensure port 5000 is available
+echo "Ensuring port 5000 is available for Flask app..."
+sudo fuser -k 5000/tcp || true
+
 # Run the other processes in the background, with output redirected to /dev/null
 source $CONDA_ACTIVATE AgentChef && echo "Ollama is already running. No need to start it here." >/dev/null 2>&1 &
 source $CONDA_ACTIVATE AgentChef && cd ./react-app && PORT=3000 npm start >/dev/null 2>&1 &
