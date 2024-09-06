@@ -1,6 +1,10 @@
 # 🍲Agent Chef (AC) V0.1.1🥘
 
 <img
+src="docs/Agent_Chef_logo.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+
+<img
 src="docs/agent_chef_poster.jpeg"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
 
