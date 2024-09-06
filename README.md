@@ -35,16 +35,11 @@ src="docs/icons/OARC_commander.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
   
 These group tags allow agent chef to splice the data out into the correct parquet cells for dataset construction. The automatic formatting tool is currently experimental however it attempts to generate the $("data") tags from the template formatting and inference. Only use this feature if you are daring. 
-
-<img
-src="docs/icons/agent_chef_ui_5.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
+  [Insert Image]
+  
 ## Synthetic Generation
 After procedural dataset construction is complete, you can move on to generating the synthetic dataset from the procedural parquet.
-<img
-src="docs/icons/agent_chef_ui_6.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
+  [Insert Image]
   
 ## Why Agent Chef?
 
