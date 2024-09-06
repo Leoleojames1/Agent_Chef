@@ -11,27 +11,28 @@ class UnslothTrainer:
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
-        self.unsloth_script_path = self._find_unsloth_script()
-        self.unsloth_path = self._find_unsloth_path()
+        self.unsloth_dir, self.unsloth_cli_path = self._find_unsloth()
 
-    def _find_unsloth_script(self):
-        script_path = os.path.join(self.cutlery_dir, 'unsloth_train_script.py')
-        if not os.path.exists(script_path):
-            raise FileNotFoundError(f"unsloth_train_script.py not found at {script_path}")
-        return script_path
-
-    def _find_unsloth_path(self):
-        unsloth_path = os.path.expanduser('~/unsloth')
-        if not os.path.exists(unsloth_path):
-            raise FileNotFoundError(f"Local Unsloth directory not found at {unsloth_path}")
-        return unsloth_path
+    def _find_unsloth(self):
+        # Look for the unsloth directory at the same level as Agent_Chef
+        agent_chef_parent = os.path.dirname(self.project_dir)
+        unsloth_dir = os.path.join(agent_chef_parent, 'unsloth')
+        unsloth_cli_path = os.path.join(unsloth_dir, 'unsloth-cli.py')
+        
+        if not os.path.exists(unsloth_cli_path):
+            raise FileNotFoundError(f"unsloth-cli.py not found at {unsloth_cli_path}")
+        
+        return unsloth_dir, unsloth_cli_path
 
     def train(self, model_name, train_dataset, validation_dataset, test_dataset=None, output_dir="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
         
+        # Ensure we're using the Python from the current environment
+        python_executable = sys.executable
+        
         cli_args = [
-            "python",
-            self.unsloth_script_path,
+            python_executable,
+            self.unsloth_cli_path,
             "--model_name", model_name,
             "--dataset", train_dataset,
             "--output_dir", output_dir,
@@ -51,12 +52,17 @@ class UnslothTrainer:
             elif value is not None:
                 cli_args.extend([f"--{key}", str(value)])
 
+        # Set up the environment to use the local unsloth installation
+        env = os.environ.copy()
+        env["PYTHONPATH"] = f"{self.unsloth_dir}:{env.get('PYTHONPATH', '')}"
+
         # Run the command and capture output in real-time
         process = subprocess.Popen(
             cli_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            universal_newlines=True
+            universal_newlines=True,
+            env=env
         )
 
         output = []
