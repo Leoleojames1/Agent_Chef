@@ -4,6 +4,14 @@
 src="docs/agent_chef_poster.jpeg"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
 
+<p align="center">
+  <img src="docs/assets/icons/ollama_agent_roll_cage_icon.png" alt="OARC LOGO" width="200"/>
+</p>
+<p align="center">
+  <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
+  <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/icons/Discord button.png" height="48"></a>
+</p>
+
 🍲Agent Chef is a powerful tool designed for dataset refinement, structuring, and generation. It empowers users to create high-quality, domain-specific datasets for fine-tuning AI models.🥘
 
 ## Features
@@ -31,20 +39,15 @@ src="docs/icons/agent_chef_ui_4.png"
 After setup, manually construct your dataset group formatting by wrapping each data point in $("data") wrappers.
 
 <img
-src="docs/icons/agent_chef_ui_7.png"
+src="docs/icons/OARC_commander.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
   
 These group tags allow agent chef to splice the data out into the correct parquet cells for dataset construction. The automatic formatting tool is currently experimental however it attempts to generate the $("data") tags from the template formatting and inference. Only use this feature if you are daring. 
-
-<img
-src="docs/icons/agent_chef_ui_5.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
+  [Insert Image]
+  
 ## Synthetic Generation
 After procedural dataset construction is complete, you can move on to generating the synthetic dataset from the procedural parquet.
-<img
-src="docs/icons/agent_chef_ui_6.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
+  [Insert Image]
   
 ## Why Agent Chef?
 
