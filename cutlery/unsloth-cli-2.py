@@ -1,15 +1,35 @@
 #!/usr/bin/env python3
 
+"""
+🦥 Enhanced Script for Fine-Tuning FastLanguageModel with Unsloth
+
+This script extends the original unsloth-cli.py with additional features:
+- Validation split option for better performance monitoring
+- Improved error handling and fallback options for model loading
+- [You can add more features here as needed]
+
+Usage example:
+    python unsloth-cli-2.py --model_name "your_model_path" --dataset "your_dataset_path" \
+    --validation_split 0.1 --max_seq_length 2048 --load_in_4bit \
+    --per_device_train_batch_size 4 --gradient_accumulation_steps 8 \
+    --max_steps 1000 --learning_rate 2e-5 --output_dir "outputs" \
+    --save_model --save_path "model" --quantization "q4_k_m"
+
+To see a full list of configurable options, use:
+    python unsloth-cli-2.py --help
+
+Happy fine-tuning!
+"""
+
 import argparse
+import logging
+import os
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from unsloth import FastLanguageModel
 from datasets import load_dataset, DatasetDict
 from trl import SFTTrainer
-from transformers import TrainingArguments
+from transformers import TrainingArguments, AutoModelForCausalLM, AutoTokenizer
 from unsloth import is_bfloat16_supported
-import logging
-import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +38,6 @@ def load_model_and_tokenizer(args):
     logger.info(f"Attempting to load model from: {args.model_name}")
     
     try:
-        # First, try loading with FastLanguageModel
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=args.model_name,
             max_seq_length=args.max_seq_length,
@@ -29,34 +48,24 @@ def load_model_and_tokenizer(args):
     except Exception as e:
         logger.warning(f"Failed to load with FastLanguageModel: {e}")
         logger.info("Falling back to standard HuggingFace loading...")
-        
-        # Fallback to standard HuggingFace loading
-        tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-        
-        # Configure quantization if needed
-        if args.load_in_4bit:
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model_name,
+                torch_dtype=torch.float16 if args.load_in_4bit else None,
+                load_in_4bit=args.load_in_4bit,
+                device_map="auto"
             )
-        else:
-            quantization_config = None
-        
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model_name,
-            quantization_config=quantization_config,
-            device_map="auto"
-        )
-        logger.info("Model loaded successfully with standard HuggingFace method")
-    
+            logger.info("Model loaded successfully with standard HuggingFace method")
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise
+
     return model, tokenizer
 
 def run(args):
     model, tokenizer = load_model_and_tokenizer(args)
 
-    # The rest of your script remains largely the same
     model = FastLanguageModel.get_peft_model(
         model,
         r=args.r,
@@ -72,7 +81,7 @@ def run(args):
     )
 
     logger.info('=== Loading and Formatting Dataset ===')
-    dataset = load_dataset(args.dataset)
+    dataset = load_dataset("parquet", data_files=args.dataset)
     
     if args.validation_split > 0:
         train_test_split = dataset['train'].train_test_split(test_size=args.validation_split)
@@ -86,7 +95,7 @@ def run(args):
         })
 
     def formatting_prompts_func(examples):
-        instructions = examples["instruction"]
+        instructions = examples.get("instruction", [""] * len(examples["input"]))
         inputs = examples["input"]
         outputs = examples["output"]
         texts = []
@@ -98,7 +107,6 @@ def run(args):
     dataset = dataset.map(formatting_prompts_func, batched=True)
     logger.info("Data is formatted and ready!")
 
-    print('=== Configuring Training Arguments ===')
     training_args = TrainingArguments(
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -116,7 +124,6 @@ def run(args):
         report_to=args.report_to,
     )
 
-    print('=== Initializing Trainer ===')
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -129,16 +136,16 @@ def run(args):
         args=training_args,
     )
 
-    print('=== Starting Training ===')
+    logger.info('=== Starting Training ===')
     trainer_stats = trainer.train()
-    print(trainer_stats)
+    logger.info(trainer_stats)
 
     if args.save_model:
-        print('=== Saving Model ===')
+        logger.info('=== Saving Model ===')
         if args.save_gguf:
             if isinstance(args.quantization, list):
                 for quantization_method in args.quantization:
-                    print(f"Saving model with quantization method: {quantization_method}")
+                    logger.info(f"Saving model with quantization method: {quantization_method}")
                     model.save_pretrained_gguf(
                         args.save_path,
                         tokenizer,
@@ -151,7 +158,7 @@ def run(args):
                             quantization_method=quantization_method,
                         )
             else:
-                print(f"Saving model with quantization method: {args.quantization}")
+                logger.info(f"Saving model with quantization method: {args.quantization}")
                 model.save_pretrained_gguf(args.save_path, tokenizer, quantization_method=args.quantization)
                 if args.push_model:
                     model.push_to_hub_gguf(
@@ -164,17 +171,17 @@ def run(args):
             if args.push_model:
                 model.push_to_hub_merged(args.save_path, tokenizer, args.hub_token)
     else:
-        print("Warning: The model is not saved!")
+        logger.warning("The model is not saved!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="🦥 Enhanced fine-tuning script using Unsloth")
     
     model_group = parser.add_argument_group("🤖 Model Options")
-    model_group.add_argument('--model_name', type=str, default="unsloth/llama-3-8b", help="Model name to load")
+    model_group.add_argument('--model_name', type=str, required=True, help="Model name or path to load")
     model_group.add_argument('--max_seq_length', type=int, default=2048, help="Maximum sequence length")
     model_group.add_argument('--dtype', type=str, default=None, help="Data type for model (None for auto detection)")
     model_group.add_argument('--load_in_4bit', action='store_true', help="Use 4bit quantization")
-    model_group.add_argument('--dataset', type=str, required=True, help="Hugging Face dataset to use for training")
+    model_group.add_argument('--dataset', type=str, required=True, help="Path to the parquet dataset file")
     model_group.add_argument('--validation_split', type=float, default=0.0, help="Percentage of training data to use for validation (0.0 to 0.2)")
 
     lora_group = parser.add_argument_group("🧠 LoRA Options")
