@@ -44,10 +44,11 @@ python app.py &
 FLASK_PID=$!
 
 # Start the React app
-cd ./react-app
-npm start
+echo "Starting React app..."
+HOST=localhost npm start &
+REACT_PID=$!
 
-# If the React app exits, kill the Flask app
-kill $FLASK_PID
+# Wait for both processes
+wait $FLASK_PID $REACT_PID
 
 echo "AgentChef runner script completed."
