@@ -187,6 +187,7 @@ function App() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [pageData, setPageData] = useState([]);
   const [columnOrder, setColumnOrder] = useState([]);
+  const [validationSplit, setValidationSplit] = useState(0);
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
