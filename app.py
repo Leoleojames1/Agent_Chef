@@ -770,11 +770,11 @@ def unsloth_train():
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
         print(f"{Fore.GREEN}Starting Unsloth training{Style.RESET_ALL}")
-        output_dir = os.path.join(oven_dir, new_model_name)
+        model_output_dir = os.path.join(oven_dir, new_model_name)
         result = unsloth_trainer.train(
             model_name=os.path.join(huggingface_dir, huggingface_model),
             train_dataset=train_dataset_path,
-            output_dir=output_dir,
+            output_dir=model_output_dir,
             max_steps=num_train_epochs * 100,
             per_device_train_batch_size=per_device_train_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
@@ -788,7 +788,7 @@ def unsloth_train():
         return jsonify({
             'message': 'Unsloth training completed successfully',
             'training_result': result,
-            'output_dir': output_dir
+            'output_dir': model_output_dir
         })
 
     except Exception as e:
