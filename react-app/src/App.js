@@ -908,14 +908,12 @@ useEffect(() => {
       
       const dataToSend = {
         trainingFile: selectedTrainingFile,
-        validationFile: selectedValidationFile,
-        testFile: selectedTestFile,
         huggingfaceModel: selectedHuggingfaceModel,
         newModelName: newModelName,
         numTrainEpochs: unslothTrainingEpochs,
         perDeviceTrainBatchSize: unslothBatchSize,
         gradientAccumulationSteps: unslothAccumulationSteps,
-        customChatTemplate: customChatTemplate || undefined
+        validationSplit: validationSplit,
       };
   
       console.log("Sending data to Unsloth trainer:", JSON.stringify(dataToSend, null, 2));
@@ -1222,6 +1220,15 @@ useEffect(() => {
                             <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
                           ))}
                       </Select>
+                      <TextField
+                        fullWidth
+                        label="Validation Split (%)"
+                        type="number"
+                        value={validationSplit}
+                        onChange={(e) => setValidationSplit(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))}
+                        inputProps={{ min: 0, max: 20 }}
+                        sx={{ mb: 2 }}
+                      />
                       <Select
                         fullWidth
                         value={selectedTestFile}

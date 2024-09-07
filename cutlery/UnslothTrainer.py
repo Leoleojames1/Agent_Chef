@@ -14,9 +14,9 @@ class UnslothTrainer:
         self.unsloth_script_path = self._find_unsloth_script()
 
     def _find_unsloth_script(self):
-        script_path = os.path.join(self.cutlery_dir, 'unsloth-cli.py')
+        script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
         if not os.path.exists(script_path):
-            raise FileNotFoundError(f"unsloth-cli.py not found at {script_path}")
+            raise FileNotFoundError(f"unsloth-cli-2.py not found at {script_path}")
         return script_path
 
     def train(self, model_name, train_dataset, output_dir="unsloth_model", **kwargs):
@@ -32,13 +32,18 @@ class UnslothTrainer:
             "--save_model",
         ]
 
+        # Add validation split if provided
+        if 'validation_split' in kwargs:
+            cli_args.extend(["--validation_split", str(kwargs['validation_split'])])
+
         # Add any additional kwargs as CLI arguments
         for key, value in kwargs.items():
-            if isinstance(value, bool):
-                if value:
-                    cli_args.append(f"--{key}")
-            elif value is not None:
-                cli_args.extend([f"--{key}", str(value)])
+            if key != 'validation_split':  # Skip validation_split as it's already handled
+                if isinstance(value, bool):
+                    if value:
+                        cli_args.append(f"--{key}")
+                elif value is not None:
+                    cli_args.extend([f"--{key}", str(value)])
 
         # Run the command and capture output in real-time
         process = subprocess.Popen(
