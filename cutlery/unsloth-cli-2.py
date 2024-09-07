@@ -73,30 +73,52 @@ def load_model_and_tokenizer(args):
             logger.info(f"Total number of tensors in SafeTensors: {len(header)}")
     
     try:
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=args.model_name,
-            max_seq_length=args.max_seq_length,
-            dtype=args.dtype,
-            load_in_4bit=args.load_in_4bit,
-        )
-        logger.info("Model loaded successfully with FastLanguageModel")
+        if args.load_in_16bit:
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=args.model_name,
+                max_seq_length=args.max_seq_length,
+                dtype=torch.float16,
+                load_in_4bit=False,
+            )
+        elif args.load_in_4bit:
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=args.model_name,
+                max_seq_length=args.max_seq_length,
+                dtype=None,
+                load_in_4bit=True,
+            )
+        else:
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=args.model_name,
+                max_seq_length=args.max_seq_length,
+                dtype=args.dtype,
+                load_in_4bit=False,
+            )
+        logger.info(f"Model loaded successfully with FastLanguageModel in {'16-bit' if args.load_in_16bit else '4-bit' if args.load_in_4bit else 'default'} precision")
     except Exception as e:
         logger.warning(f"Failed to load with FastLanguageModel: {e}")
         logger.info("Falling back to standard HuggingFace loading...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-            # model = AutoModelForCausalLM.from_pretrained(
-            #     args.model_name,
-            #     torch_dtype=torch.float16 if args.load_in_4bit else None,
-            #     load_in_4bit=args.load_in_4bit,
-            #     device_map="auto"
-            # )
-            model = AutoModelForCausalLM.from_pretrained(
-                args.model_name,
-                torch_dtype=torch.float16,
-                device_map="auto"
-            )
-            logger.info("Model loaded successfully with standard HuggingFace method")
+            if args.load_in_16bit:
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model_name,
+                    torch_dtype=torch.float16,
+                    device_map="auto"
+                )
+            elif args.load_in_4bit:
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model_name,
+                    load_in_4bit=True,
+                    device_map="auto"
+                )
+            else:
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model_name,
+                    torch_dtype=args.dtype,
+                    device_map="auto"
+                )
+            logger.info(f"Model loaded successfully with standard HuggingFace method in {'16-bit' if args.load_in_16bit else '4-bit' if args.load_in_4bit else 'default'} precision")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise
@@ -220,7 +242,8 @@ if __name__ == "__main__":
     model_group.add_argument('--model_name', type=str, required=True, help="Model name or path to load")
     model_group.add_argument('--max_seq_length', type=int, default=2048, help="Maximum sequence length")
     model_group.add_argument('--dtype', type=str, default=None, help="Data type for model (None for auto detection)")
-    model_group.add_argument('--load_in_4bit', action='store_true', help="Use 4bit quantization")
+    model_group.add_argument('--load_in_4bit', action='store_true', help="Use 4-bit quantization")
+    model_group.add_argument('--load_in_16bit', action='store_true', help="Use 16-bit precision")
     model_group.add_argument('--dataset', type=str, required=True, help="Path to the parquet dataset file")
     model_group.add_argument('--validation_split', type=float, default=0.0, help="Percentage of training data to use for validation (0.0 to 0.2)")
 
@@ -264,6 +287,10 @@ if __name__ == "__main__":
     push_group.add_argument('--hub_token', type=str, help="Token for pushing the model to Hugging Face hub")
 
     args = parser.parse_args()
+
+    if args.load_in_4bit and args.load_in_16bit:
+        logger.error("Cannot use both 4-bit and 16-bit options simultaneously. Please choose one.")
+        exit(1)
 
     try:
         run(args)
