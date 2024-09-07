@@ -85,10 +85,15 @@ def load_model_and_tokenizer(args):
         logger.info("Falling back to standard HuggingFace loading...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+            # model = AutoModelForCausalLM.from_pretrained(
+            #     args.model_name,
+            #     torch_dtype=torch.float16 if args.load_in_4bit else None,
+            #     load_in_4bit=args.load_in_4bit,
+            #     device_map="auto"
+            # )
             model = AutoModelForCausalLM.from_pretrained(
                 args.model_name,
-                torch_dtype=torch.float16 if args.load_in_4bit else None,
-                load_in_4bit=args.load_in_4bit,
+                torch_dtype=torch.float16,
                 device_map="auto"
             )
             logger.info("Model loaded successfully with standard HuggingFace method")

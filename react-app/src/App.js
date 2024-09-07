@@ -188,6 +188,7 @@ function App() {
   const [pageData, setPageData] = useState([]);
   const [columnOrder, setColumnOrder] = useState([]);
   const [validationSplit, setValidationSplit] = useState(0);
+  const [precision, setPrecision] = useState('4bit');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -897,14 +898,9 @@ useEffect(() => {
     try {
       setError(null);
       setOutput("Processing Unsloth training...");
-      setTrainingProgress({ progress: 0, metrics: [] });
       
-      if (!selectedTrainingFile || !selectedValidationFile) {
-        throw new Error("Please select both training and validation files.");
-      }
-      
-      if (!selectedHuggingfaceModel) {
-        throw new Error("Please select a Hugging Face model.");
+      if (!selectedTrainingFile || !selectedHuggingfaceModel) {
+        throw new Error("Please select a training file and a Hugging Face model.");
       }
       
       const dataToSend = {
@@ -915,6 +911,7 @@ useEffect(() => {
         perDeviceTrainBatchSize: unslothBatchSize,
         gradientAccumulationSteps: unslothAccumulationSteps,
         validationSplit: validationSplit,
+        precision: precision
       };
   
       console.log("Sending data to Unsloth trainer:", JSON.stringify(dataToSend, null, 2));
@@ -927,7 +924,6 @@ useEffect(() => {
       } else {
         setOutput(JSON.stringify(response.data, null, 2));
         // Update training progress here if you're getting progress data in the response
-        // This is just an example, adjust according to your actual response structure
         if (response.data.training_result && response.data.training_result.output) {
           // Parse the output to extract progress information
           const progressRegex = /Progress: (\d+)%/;
@@ -1263,6 +1259,15 @@ useEffect(() => {
                         onChange={(e) => setNewModelName(e.target.value)}
                         sx={{ mb: 2 }}
                       />
+                      <Select
+                        fullWidth
+                        value={precision}
+                        onChange={(e) => setPrecision(e.target.value)}
+                        sx={{ mb: 2 }}
+                      >
+                        <MenuItem value="4bit">4-bit Precision</MenuItem>
+                        <MenuItem value="16bit">16-bit Precision</MenuItem>
+                      </Select>
                       <TextField
                         fullWidth
                         label="Number of Training Epochs"
@@ -1304,12 +1309,12 @@ useEffect(() => {
                         fullWidth
                         variant="contained" 
                         onClick={runUnslothTraining}
-                        disabled={!selectedTrainingFile || !selectedValidationFile || !selectedHuggingfaceModel}
+                        disabled={!selectedTrainingFile || !selectedHuggingfaceModel}
                         sx={{ mb: 2 }}
                       >
                         Run Unsloth Training
                       </Button>
-                      {trainingProgress && (
+                      {showTrainingProgress && trainingProgress && (
                         <TrainingProgressVisualization progress={trainingProgress.progress} metrics={trainingProgress.metrics} />
                       )}
                     </Paper>

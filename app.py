@@ -744,6 +744,7 @@ def unsloth_train():
     per_device_train_batch_size = data.get('perDeviceTrainBatchSize', 2)
     gradient_accumulation_steps = data.get('gradientAccumulationSteps', 4)
     validation_split = data.get('validationSplit', 0)
+    precision = data.get('precision', '4bit')  # New parameter for precision
 
     try:
         if not training_file:
@@ -767,7 +768,9 @@ def unsloth_train():
             gradient_accumulation_steps=gradient_accumulation_steps,
             save_gguf=True,
             quantization="q4_k_m",
-            validation_split=validation_split
+            validation_split=validation_split,
+            load_in_4bit=(precision == '4bit'),
+            load_in_16bit=(precision == '16bit')
         )
 
         return jsonify({

@@ -31,16 +31,22 @@ class UnslothTrainer:
             "--model_name", model_name,
             "--dataset", train_dataset,
             "--output_dir", output_dir,
-            "--load_in_4bit",
         ]
+
+        # Handle precision option
+        if kwargs.get('load_in_16bit'):
+            cli_args.append("--load_in_16bit")
+        elif kwargs.get('load_in_4bit'):
+            cli_args.append("--load_in_4bit")
 
         # Add any additional kwargs as CLI arguments
         for key, value in kwargs.items():
-            if isinstance(value, bool):
-                if value:
-                    cli_args.append(f"--{key}")
-            elif value is not None:
-                cli_args.extend([f"--{key}", str(value)])
+            if key not in ['load_in_16bit', 'load_in_4bit']:  # Skip these as they're handled above
+                if isinstance(value, bool):
+                    if value:
+                        cli_args.append(f"--{key}")
+                elif value is not None:
+                    cli_args.extend([f"--{key}", str(value)])
 
         self.logger.info(f"Running command: {' '.join(cli_args)}")
 
