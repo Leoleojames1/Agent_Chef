@@ -98,6 +98,10 @@ def run(mode, seed_file, **kwargs):
         logging.exception(error_msg)
         return {'error': error_msg}
 
+@app.route('/')
+def index():
+    return "Welcome to AgentChef API"
+
 @app.route('/api/files', methods=['GET'])
 def get_files():
     def get_files_from_dir(directory):
@@ -820,4 +824,4 @@ def unsloth_generate():
         return jsonify({"error": error_msg}), 500
     
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
