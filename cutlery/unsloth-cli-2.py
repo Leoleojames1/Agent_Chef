@@ -146,7 +146,12 @@ def run(args):
     dataset = load_dataset("parquet", data_files=args.dataset)
     
     if args.validation_split > 0:
-        train_test_split = dataset['train'].train_test_split(test_size=args.validation_split)
+        # Convert percentage to fraction
+        validation_fraction = args.validation_split / 100.0
+        if validation_fraction >= 1:
+            logger.warning(f"Validation split {args.validation_split}% is too high. Setting it to 20%.")
+            validation_fraction = 0.2
+        train_test_split = dataset['train'].train_test_split(test_size=validation_fraction)
         dataset = DatasetDict({
             'train': train_test_split['train'],
             'validation': train_test_split['test']
@@ -245,7 +250,7 @@ if __name__ == "__main__":
     model_group.add_argument('--load_in_4bit', action='store_true', help="Use 4-bit quantization")
     model_group.add_argument('--load_in_16bit', action='store_true', help="Use 16-bit precision")
     model_group.add_argument('--dataset', type=str, required=True, help="Path to the parquet dataset file")
-    model_group.add_argument('--validation_split', type=float, default=0.0, help="Percentage of training data to use for validation (0.0 to 0.2)")
+    model_group.add_argument('--validation_split', type=float, default=0.0, help="Percentage of training data to use for validation (0.0 to 20.0)")
 
     lora_group = parser.add_argument_group("🧠 LoRA Options")
     lora_group.add_argument('--r', type=int, default=16, help="Rank for LoRA model")
