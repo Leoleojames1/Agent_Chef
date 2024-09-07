@@ -45,6 +45,7 @@ FLASK_PID=$!
 
 # Start the React app
 echo "Starting React app..."
+cd react-app
 HOST=localhost npm start &
 REACT_PID=$!
 
