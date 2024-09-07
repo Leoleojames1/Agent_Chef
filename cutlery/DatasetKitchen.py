@@ -14,6 +14,8 @@ from colorama import Fore, Style
 from colorama import init
 init(autoreset=True)
 
+#TODO allow arxiv & hugging face links in ui for digestion and dataset construction
+
 class PromptManager:
     def __init__(self):
         self.prompts = {
