@@ -21,6 +21,9 @@ class UnslothTrainer:
 
     def train(self, model_name, train_dataset, output_dir="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
+        self.logger.info(f"Model name: {model_name}")
+        self.logger.info(f"Training dataset: {train_dataset}")
+        self.logger.info(f"Output directory: {output_dir}")
         
         cli_args = [
             "python",
@@ -29,21 +32,17 @@ class UnslothTrainer:
             "--dataset", train_dataset,
             "--output_dir", output_dir,
             "--load_in_4bit",
-            "--save_model",
         ]
-
-        # Add validation split if provided
-        if 'validation_split' in kwargs:
-            cli_args.extend(["--validation_split", str(kwargs['validation_split'])])
 
         # Add any additional kwargs as CLI arguments
         for key, value in kwargs.items():
-            if key != 'validation_split':  # Skip validation_split as it's already handled
-                if isinstance(value, bool):
-                    if value:
-                        cli_args.append(f"--{key}")
-                elif value is not None:
-                    cli_args.extend([f"--{key}", str(value)])
+            if isinstance(value, bool):
+                if value:
+                    cli_args.append(f"--{key}")
+            elif value is not None:
+                cli_args.extend([f"--{key}", str(value)])
+
+        self.logger.info(f"Running command: {' '.join(cli_args)}")
 
         # Run the command and capture output in real-time
         process = subprocess.Popen(
@@ -69,6 +68,8 @@ class UnslothTrainer:
         process.wait()
 
         if process.returncode != 0:
+            self.logger.error("Training failed")
             return {"error": "Training failed", "output": "\n".join(output)}
         else:
+            self.logger.info("Training completed successfully")
             return {"message": "Training completed successfully", "output": "\n".join(output)}
