@@ -25,6 +25,7 @@ class UnslothTrainer:
         self.logger.info(f"Training dataset: {train_dataset}")
         self.logger.info(f"Output directory: {output_dir}")
         
+        # Use the provided train_dataset path directly
         cli_args = [
             "python",
             self.unsloth_script_path,

@@ -744,7 +744,7 @@ def unsloth_train():
     per_device_train_batch_size = data.get('perDeviceTrainBatchSize', 2)
     gradient_accumulation_steps = data.get('gradientAccumulationSteps', 4)
     validation_split = data.get('validationSplit', 0)
-    precision = data.get('precision', '4bit')  # New parameter for precision
+    precision = data.get('precision', '4bit')
 
     try:
         if not training_file:
@@ -752,6 +752,18 @@ def unsloth_train():
 
         if not huggingface_model:
             raise ValueError("Hugging Face model not specified")
+
+        # Search for the training file in multiple directories
+        possible_dirs = [input_dir, output_dir, salad_dir, edits_dir]
+        train_dataset_path = None
+        for dir_path in possible_dirs:
+            full_path = os.path.join(dir_path, training_file)
+            if os.path.exists(full_path):
+                train_dataset_path = full_path
+                break
+        
+        if not train_dataset_path:
+            raise FileNotFoundError(f"Training file '{training_file}' not found in any of the expected directories")
 
         print(f"{Fore.GREEN}Initializing Unsloth trainer with model: {huggingface_model}{Style.RESET_ALL}")
         
@@ -761,7 +773,7 @@ def unsloth_train():
         output_dir = os.path.join(oven_dir, new_model_name)
         result = unsloth_trainer.train(
             model_name=os.path.join(huggingface_dir, huggingface_model),
-            train_dataset=os.path.join(input_dir, training_file),
+            train_dataset=train_dataset_path,
             output_dir=output_dir,
             max_steps=num_train_epochs * 100,
             per_device_train_batch_size=per_device_train_batch_size,
