@@ -1,17 +1,13 @@
-# 🍲Agent Chef (AC) V0.1.1🥘
-
-<img
-src="docs/Agent_Chef_logo.png"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
-<img
-src="docs/agent_chef_poster.jpeg"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
+<p align="center">
+  <img src="docs/icons/Agent_Chef_logo.png" alt="OARC LOGO" width="250"/>
+</p>
 <p align="center">
   <a href="https://ko-fi.com/theborch"><img src="docs/icons/buy me a coffee button.png" height="48"></a>
   <a href="https://discord.gg/dAzSYcnpdF"><img src="docs/icons/Discord button.png" height="48"></a>
 </p>
+
+# 🍲Agent Chef (AC) V0.1.1🥘
+***[🦾Borch's AI Development Guide🦿](https://share.note.sx/c3topc9y#iaFb281+b0x66J+2lWIhWp4PV+wwoKsd5GqoXYg1i4I)***   ***[🦙 Ollama Discord Server 🦙](https://discord.gg/ollama)***   ***[🤖 OARC V0.28 VIDEO GUIDE 🧙](https://www.youtube.com/watch?v=W7TusPTnNXA)***
 
 🍲Agent Chef is a powerful tool designed for dataset refinement, structuring, and generation. It empowers users to create high-quality, domain-specific datasets for fine-tuning AI models.🥘
 
@@ -29,6 +25,11 @@ src="docs/agent_chef_poster.jpeg"
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
+
+<img
+src="docs/agent_chef_poster.jpeg"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+
 
 ## Setup
 Start by selecting your ollama model, system prompt, number of duplicates, and the parquet column template format.
