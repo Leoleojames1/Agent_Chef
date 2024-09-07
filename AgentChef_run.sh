@@ -38,11 +38,16 @@ sudo fuser -k 3000/tcp || true
 echo "Ensuring port 5000 is available for Flask app..."
 sudo fuser -k 5000/tcp || true
 
-# Run the other processes in the background, with output redirected to /dev/null
-source $CONDA_ACTIVATE AgentChef && echo "Ollama is already running. No need to start it here." >/dev/null 2>&1 &
-source $CONDA_ACTIVATE AgentChef && cd ./react-app && PORT=3000 npm start >/dev/null 2>&1 &
+# Start the Flask app in the background
+source $CONDA_ACTIVATE AgentChef
+python app.py &
+FLASK_PID=$!
 
-# Run app.py in the foreground so you can see its output
-source $CONDA_ACTIVATE AgentChef && python app.py
+# Start the React app
+cd ./react-app
+npm start
+
+# If the React app exits, kill the Flask app
+kill $FLASK_PID
 
 echo "AgentChef runner script completed."
