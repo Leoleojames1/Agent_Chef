@@ -46,6 +46,8 @@ FLASK_PID=$!
 # Start the React app
 echo "Starting React app..."
 cd react-app
+# Unset HOST environment variable
+unset HOST
 npm start &
 REACT_PID=$!
 
