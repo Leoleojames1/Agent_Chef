@@ -30,12 +30,47 @@ from datasets import load_dataset, DatasetDict
 from trl import SFTTrainer
 from transformers import TrainingArguments, AutoModelForCausalLM, AutoTokenizer
 from unsloth import is_bfloat16_supported
+import json
+from safetensors import safe_open
+import struct
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def analyze_safetensors_header(file_path):
+    try:
+        with open(file_path, 'rb') as f:
+            header_size_bytes = f.read(8)
+            header_size = struct.unpack('<Q', header_size_bytes)[0]
+            logger.info(f"SafeTensors header size: {header_size} bytes")
+            
+            header_json = f.read(header_size).decode('utf-8')
+            header = json.loads(header_json)
+            logger.info(f"SafeTensors header content (first 1000 chars): {json.dumps(header)[:1000]}...")
+            
+            return header_size, header
+    except Exception as e:
+        logger.error(f"Error analyzing SafeTensors header: {e}")
+        return None, None
+
 def load_model_and_tokenizer(args):
     logger.info(f"Attempting to load model from: {args.model_name}")
+    
+    # Check file permissions
+    model_dir = args.model_name if os.path.isdir(args.model_name) else os.path.dirname(args.model_name)
+    logger.info(f"Checking permissions for model directory: {model_dir}")
+    logger.info(f"Directory permissions: {oct(os.stat(model_dir).st_mode)[-3:]}")
+    
+    model_files = os.listdir(model_dir)
+    logger.info(f"Files in model directory: {model_files}")
+    
+    safetensors_file = next((f for f in model_files if f.endswith('.safetensors')), None)
+    if safetensors_file:
+        safetensors_path = os.path.join(model_dir, safetensors_file)
+        logger.info(f"Analyzing SafeTensors file: {safetensors_path}")
+        header_size, header = analyze_safetensors_header(safetensors_path)
+        if header:
+            logger.info(f"Total number of tensors in SafeTensors: {len(header)}")
     
     try:
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -224,4 +259,24 @@ if __name__ == "__main__":
     push_group.add_argument('--hub_token', type=str, help="Token for pushing the model to Hugging Face hub")
 
     args = parser.parse_args()
-    run(args)
+
+    try:
+        run(args)
+    except Exception as e:
+        logger.error(f"An error occurred during execution: {e}")
+        logger.info("Attempting to provide more information about the model...")
+        
+        model_dir = args.model_name if os.path.isdir(args.model_name) else os.path.dirname(args.model_name)
+        logger.info(f"Model directory contents: {os.listdir(model_dir)}")
+        
+        config_file = os.path.join(model_dir, "config.json")
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+            logger.info(f"Model config: {json.dumps(config, indent=2)}")
+        
+        logger.info("If the issue persists, please check the following:")
+        logger.info("1. Ensure you have the necessary permissions to read the model files.")
+        logger.info("2. Verify that the model files are not corrupted.")
+        logger.info("3. Check if the model is compatible with the current version of transformers and safetensors.")
+        logger.info("4. Try updating your libraries: pip install --upgrade transformers safetensors")
