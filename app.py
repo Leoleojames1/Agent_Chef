@@ -832,5 +832,41 @@ def unsloth_generate():
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
     
+@app.route('/api/merge_adapter', methods=['POST'])
+def merge_adapter():
+    data = request.json
+    print(f"{Fore.CYAN}Received Unsloth merge data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    base_model_path = data.get('baseModelPath')
+    adapter_path = data.get('adapterPath')
+    output_path = data.get('outputPath')
+
+    try:
+        if not base_model_path or not adapter_path or not output_path:
+            raise ValueError("Base model, adapter model, and output path must be specified")
+
+        base_model_path = os.path.join(huggingface_dir, base_model_path)
+        adapter_path = os.path.join(oven_dir, adapter_path)
+        output_path = os.path.join(oven_dir, output_path)
+
+        print(f"{Fore.GREEN}Initializing Unsloth merger{Style.RESET_ALL}")
+        
+        unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
+        
+        print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
+        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path)
+
+        return jsonify({
+            'message': 'Unsloth merge completed successfully',
+            'merge_result': result,
+            'output_path': output_path
+        })
+
+    except Exception as e:
+        error_msg = f"Error in Unsloth merge: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

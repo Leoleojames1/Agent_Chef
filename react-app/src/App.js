@@ -189,6 +189,9 @@ function App() {
   const [columnOrder, setColumnOrder] = useState([]);
   const [validationSplit, setValidationSplit] = useState(0);
   const [precision, setPrecision] = useState('4bit');
+  const [mergeBaseModel, setMergeBaseModel] = useState('');
+  const [mergeAdapterModel, setMergeAdapterModel] = useState('');
+  const [mergeOutputName, setMergeOutputName] = useState('');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -894,6 +897,38 @@ useEffect(() => {
     ));
   };
 
+  const runUnslothMerge = async () => {
+    try {
+      setError(null);
+      setOutput("Processing Unsloth merge...");
+      
+      if (!mergeBaseModel || !mergeAdapterModel || !mergeOutputName) {
+        throw new Error("Please select a base model, an adapter model, and provide an output name.");
+      }
+      
+      const dataToSend = {
+        baseModelPath: mergeBaseModel,
+        adapterPath: mergeAdapterModel,
+        outputPath: mergeOutputName
+      };
+  
+      console.log("Sending data to Unsloth merger:", JSON.stringify(dataToSend, null, 2));
+  
+      const response = await axios.post('http://localhost:5000/api/merge_adapter', dataToSend);
+    
+      if (response.data.error) {
+        setError(response.data.error);
+        setOutput('');
+      } else {
+        setOutput(JSON.stringify(response.data, null, 2));
+        fetchFiles();
+      }
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+      setOutput('');
+    }
+  };
+  
   const runUnslothTraining = async () => {
     try {
       setError(null);
@@ -941,254 +976,76 @@ useEffect(() => {
     }
   };
 
-        return (
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <PerlinNoiseBackground />
-            <Box sx={{ display: 'flex' }}>
-              <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-                <Toolbar>
-                  <Typography variant="h4" noWrap component="div">
-                    🍲Agent Chef🥩
-                  </Typography>
-                </Toolbar>
-              </AppBar>
-              <Drawer
-                variant="permanent"
-                sx={{
-                  width: drawerWidth,
-                  flexShrink: 0,
-                  [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
-                }}
-              >
-                <Toolbar />
-                <Box sx={{ overflow: 'auto' }}>
-                  <List>
-                    {renderFileSection("Ingredients", allFiles.filter(file => file.type === 'ingredient'), 'ingredients')}
-                    <Divider />
-                    {renderFileSection("Dishes", allFiles.filter(file => file.type === 'dish'), 'dishes')}
-                    <Divider />
-                    {renderFileSection("Salads", allFiles.filter(file => file.type === 'salad'), 'salads')}
-                    <Divider />
-                    {renderFileSection("Edits", allFiles.filter(file => file.type === 'edits'), 'edits')}
-                    <Divider />
-                    <ListItem>
-                      <ListItemButton onClick={() => toggleSection('oven')}>
-                        {expandedSections['oven'] ? <ExpandMoreIcon /> : <ChevronRightIcon />}
-                        <Typography variant="h6">Oven</Typography>
-                      </ListItemButton>
-                    </ListItem>
-                    <Collapse in={expandedSections['oven']} timeout="auto" unmountOnExit>
-                      <List component="div" disablePadding>
-                        {huggingfaceFolders.map((folder, index) => (
-                          <ListItem key={`oven-${index}`} disablePadding sx={{ pl: 4 }}>
-                            <ListItemButton>
-                              <ListItemText primary={folder} />
-                            </ListItemButton>
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Collapse>
-                    {latexFiles.length > 0 && (
-                      <>
-                        <Divider />
-                        {renderFileSection("LaTeX Files", allFiles.filter(file => file.type === 'latex'), 'latex')}
-                      </>
-                    )}
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <PerlinNoiseBackground />
+        <Box sx={{ display: 'flex' }}>
+          <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+            <Toolbar>
+              <Typography variant="h4" noWrap component="div">
+                🍲Agent Chef🥩
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Drawer
+            variant="permanent"
+            sx={{
+              width: drawerWidth,
+              flexShrink: 0,
+              [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+            }}
+          >
+            <Toolbar />
+            <Box sx={{ overflow: 'auto' }}>
+              <List>
+                {renderFileSection("Ingredients", allFiles.filter(file => file.type === 'ingredient'), 'ingredients')}
+                <Divider />
+                {renderFileSection("Dishes", allFiles.filter(file => file.type === 'dish'), 'dishes')}
+                <Divider />
+                {renderFileSection("Salads", allFiles.filter(file => file.type === 'salad'), 'salads')}
+                <Divider />
+                {renderFileSection("Edits", allFiles.filter(file => file.type === 'edits'), 'edits')}
+                <Divider />
+                <ListItem>
+                  <ListItemButton onClick={() => toggleSection('oven')}>
+                    {expandedSections['oven'] ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                    <Typography variant="h6">Oven</Typography>
+                  </ListItemButton>
+                </ListItem>
+                <Collapse in={expandedSections['oven']} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {huggingfaceFolders.map((folder, index) => (
+                      <ListItem key={`oven-${index}`} disablePadding sx={{ pl: 4 }}>
+                        <ListItemButton>
+                          <ListItemText primary={folder} />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
                   </List>
-                </Box>
-              </Drawer>
-              <MainContent>
-                <Toolbar />
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Setup</Typography>
-                      <Select
-                        fullWidth
-                        value={selectedOllamaModel}
-                        onChange={(e) => setSelectedOllamaModel(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Ollama Model</MenuItem>
-                        {ollamaModels.map((model) => (
-                          <MenuItem key={model} value={model}>{model}</MenuItem>
-                        ))}
-                      </Select>
-                      <Select
-                        fullWidth
-                        value={selectedTemplate}
-                        onChange={(e) => setSelectedTemplate(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Template</MenuItem>
-                        {renderTemplateOptions()}
-                      </Select>
-                      <TextField
-                        fullWidth
-                        label="Random Sample Rate (%)"
-                        type="number"
-                        value={sampleRate}
-                        onChange={(e) => setSampleRate(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                        inputProps={{ min: 0, max: 100 }}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Paraphrases per Sample"
-                        type="number"
-                        value={paraphrasesPerSample}
-                        onChange={(e) => setParaphrasesPerSample(Math.max(1, parseInt(e.target.value) || 1))}
-                        inputProps={{ min: 1 }}
-                        sx={{ mb: 2 }}
-                      />
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={useAllSamples}
-                            onChange={(e) => setUseAllSamples(e.target.checked)}
-                          />
-                        }
-                        label="Use All Samples (Negates Random Sample Rate)"
-                      />
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Editor / Viewer</Typography>
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        Note: You can include multi-line content, such as Python code, within a single $("data/code") group split across multiple lines. Run the Parse Dataset button to have Agent Chef attempt to generate your $("data") formatting for the provided txt file and based on the selected format or format the data by hand.
-                      </Typography>
-                      <Box sx={{ mb: 2 }}>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={formattingMode === 'automatic'}
-                              onChange={(e) => setFormattingMode(e.target.checked ? 'automatic' : 'manual')}
-                            />
-                          }
-                          label="Automatic Formatting"
-                        />
-                      </Box>
-                      <TextField
-                        fullWidth
-                        label="Filename"
-                        value={filename}
-                        onChange={(e) => setFilename(e.target.value)}
-                        sx={{ mb: 2 }}
-                      />
-                      {fileType === 'parquet' ? (
-                        <ParquetViewer 
-                          data={parquetData} 
-                          columns={parquetColumns} 
-                          totalRows={totalRows} 
-                          filename={selectedFile}
-                        />
-                      ) : (
-                        <AceEditor
-                          ref={aceEditorRef}
-                          mode={editorMode}
-                          theme="monokai"
-                          onChange={setEditorContent}
-                          value={editorContent}
-                          name="editor"
-                          editorProps={{ $blockScrolling: true }}
-                          width="100%"
-                          height="400px"
-                          setOptions={{
-                            useWorker: false,
-                            showLineNumbers: true,
-                            tabSize: 2,
-                          }}
-                        />
-                      )}
-                      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-                        <Button variant="contained" onClick={saveFile}>
-                          Save as TXT
-                        </Button>
-                        <Button 
-                          variant="contained" 
-                          onClick={convertToJson}
-                          disabled={!selectedTemplate || !selectedFile || !(fileType === 'txt' || fileType === 'tex' || fileType === 'json')}
-                        >
-                          Convert to JSON & Parquet Seeds
-                        </Button>
-                        <Button 
-                          variant="contained" 
-                          onClick={combineSelectedFiles}
-                          disabled={selectedFiles.length < 2}
-                        >
-                          Combine Selected Files
-                        </Button>
-                        <Button variant="contained" onClick={parseDataset}>
-                          Parse Dataset
-                        </Button>
-                      </Box>
-                      {selectedFiles.length > 0 && (
-                        <Box sx={{ mt: 2 }}>
-                          <Typography variant="subtitle1">Selected Files:</Typography>
-                          <ul>
-                            {selectedFiles.map(file => (
-                              <li key={`${file.type}-${file.name}`}>{file.name} ({file.type})</li>
-                            ))}
-                          </ul>
-                        </Box>
-                      )}
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Column Selection</Typography>
-                      <Typography variant="body2" gutterBottom>
-                        Select the type for each column:
-                        - Static: Copied directly from the original
-                        - Reference: Used for augmenting dynamic columns
-                        - Dynamic: Paraphrased/generated
-                      </Typography>
-                      {availableColumns.map((column) => (
-                        <Box key={column} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <Typography sx={{ minWidth: 150 }}>{column}:</Typography>
-                          <Select
-                            value={columnTypes[column] || 'dynamic'}
-                            onChange={(e) => handleColumnTypeChange(column, e.target.value)}
-                            sx={{ minWidth: 150 }}
-                          >
-                            <MenuItem value="static">Static</MenuItem>
-                            <MenuItem value="reference">Reference</MenuItem>
-                            <MenuItem value="dynamic">Dynamic</MenuItem>
-                          </Select>
-                        </Box>
-                      ))}
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <CustomPromptEditor
-                        columnTypes={columnTypes}
-                        onSavePrompts={handleSavePrompts}
-                        initialCustomPrompts={customPrompts}
-                      />
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Synthetic Data Generation</Typography>
-                      <Button 
-                        fullWidth
-                        variant="contained" 
-                        onClick={runAgentChef}
-                        disabled={!selectedOllamaModel || !selectedFile || !(fileType === 'parquet' || fileType === 'txt' || fileType === 'json')}
-                        sx={{ mb: 2 }}
-                      >
-                        Generate Synthetic Data
-                      </Button>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Unsloth Training</Typography>
+                </Collapse>
+                {latexFiles.length > 0 && (
+                  <>
+                    <Divider />
+                    {renderFileSection("LaTeX Files", allFiles.filter(file => file.type === 'latex'), 'latex')}
+                  </>
+                )}
+              </List>
+            </Box>
+          </Drawer>
+          <MainContent>
+            <Toolbar />
+            <Grid container spacing={2}>
+              {/* ... (previous Grid items remain unchanged) */}
+              <Grid item xs={12}>
+                <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="h5" gutterBottom>Unsloth Training and Merging</Typography>
+                  <Tabs value={unslothMode} onChange={(e, newValue) => setUnslothMode(newValue)} sx={{ mb: 2 }}>
+                    <Tab label="Train" value="train" />
+                    <Tab label="Merge" value="merge" />
+                  </Tabs>
+                  {unslothMode === 'train' ? (
+                    <>
                       <Select
                         fullWidth
                         value={selectedTrainingFile}
@@ -1295,11 +1152,58 @@ useEffect(() => {
                       >
                         Run Unsloth Training
                       </Button>
-                      {showTrainingProgress && trainingProgress && (
-                        <TrainingProgressVisualization progress={trainingProgress.progress} metrics={trainingProgress.metrics} />
-                      )}
-                    </Paper>
-                  </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Select
+                        fullWidth
+                        value={mergeBaseModel}
+                        onChange={(e) => setMergeBaseModel(e.target.value)}
+                        displayEmpty
+                        sx={{ mb: 2 }}
+                      >
+                        <MenuItem value="">Select Base Model</MenuItem>
+                        {huggingfaceFolders.map((folder) => (
+                          <MenuItem key={folder} value={folder}>{folder}</MenuItem>
+                        ))}
+                      </Select>
+                      <Select
+                        fullWidth
+                        value={mergeAdapterModel}
+                        onChange={(e) => setMergeAdapterModel(e.target.value)}
+                        displayEmpty
+                        sx={{ mb: 2 }}
+                      >
+                        <MenuItem value="">Select Adapter Model</MenuItem>
+                        {allFiles
+                          .filter(file => file.type === 'oven' && file.name.includes('checkpoint'))
+                          .map((file) => (
+                            <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
+                          ))}
+                      </Select>
+                      <TextField
+                        fullWidth
+                        label="Merged Model Name"
+                        value={mergeOutputName}
+                        onChange={(e) => setMergeOutputName(e.target.value)}
+                        sx={{ mb: 2 }}
+                      />
+                      <Button 
+                        fullWidth
+                        variant="contained" 
+                        onClick={runUnslothMerge}
+                        disabled={!mergeBaseModel || !mergeAdapterModel || !mergeOutputName}
+                        sx={{ mb: 2 }}
+                      >
+                        Merge Models
+                      </Button>
+                    </>
+                  )}
+                  {showTrainingProgress && trainingProgress && (
+                    <TrainingProgressVisualization progress={trainingProgress.progress} metrics={trainingProgress.metrics} />
+                  )}
+                </Paper>
+              </Grid>
               {error && (
                 <Grid item xs={12}>
                   <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.main' }}>

@@ -295,8 +295,7 @@ if __name__ == "__main__":
     model_group.add_argument('--validation_dataset', type=str, help="Path to the validation parquet dataset file")
     model_group.add_argument('--test_dataset', type=str, help="Path to the test parquet dataset file")
 
-
-    lora_group = parser.add_argument_group("🧠 LoRA Options")
+    lora_group = train_parser.add_argument_group("🧠 LoRA Options")
     lora_group.add_argument('--r', type=int, default=16, help="Rank for LoRA model")
     lora_group.add_argument('--lora_alpha', type=int, default=16, help="LoRA alpha parameter")
     lora_group.add_argument('--lora_dropout', type=float, default=0, help="LoRA dropout rate")
@@ -306,7 +305,7 @@ if __name__ == "__main__":
     lora_group.add_argument('--use_rslora', action='store_true', help="Use rank stabilized LoRA")
     lora_group.add_argument('--loftq_config', type=str, default=None, help="Configuration for LoftQ")
 
-    training_group = parser.add_argument_group("🎓 Training Options")
+    training_group = train_parser.add_argument_group("🎓 Training Options")
     training_group.add_argument('--per_device_train_batch_size', type=int, default=2, help="Batch size per device during training")
     training_group.add_argument('--gradient_accumulation_steps', type=int, default=4, help="Number of gradient accumulation steps")
     training_group.add_argument('--warmup_steps', type=int, default=5, help="Number of warmup steps")
@@ -317,11 +316,11 @@ if __name__ == "__main__":
     training_group.add_argument('--lr_scheduler_type', type=str, default="linear", help="Learning rate scheduler type")
     training_group.add_argument('--seed', type=int, default=3407, help="Seed for reproducibility")
 
-    report_group = parser.add_argument_group("📊 Report Options")
+    report_group = train_parser.add_argument_group("📊 Report Options")
     report_group.add_argument('--report_to', type=str, default="tensorboard", choices=["azure_ml", "clearml", "codecarbon", "comet_ml", "dagshub", "dvclive", "flyte", "mlflow", "neptune", "tensorboard", "wandb", "all", "none"], help="The list of integrations to report the results and logs to")
     report_group.add_argument('--logging_steps', type=int, default=1, help="Logging steps")
 
-    save_group = parser.add_argument_group('💾 Save Model Options')
+    save_group = train_parser.add_argument_group('💾 Save Model Options')
     save_group.add_argument('--output_dir', type=str, default="outputs", help="Output directory")
     save_group.add_argument('--save_model', action='store_true', help="Save the model after training")
     save_group.add_argument('--save_method', type=str, default="merged_16bit", choices=["merged_16bit", "merged_4bit", "lora"], help="Save method for the model")
@@ -329,7 +328,7 @@ if __name__ == "__main__":
     save_group.add_argument('--save_path', type=str, default="model", help="Path to save the model")
     save_group.add_argument('--quantization', type=str, default="q8_0", nargs="+", help="Quantization method for saving the model")
 
-    push_group = parser.add_argument_group('🚀 Push Model Options')
+    push_group = train_parser.add_argument_group('🚀 Push Model Options')
     push_group.add_argument('--push_model', action='store_true', help="Push the model to Hugging Face hub after training")
     push_group.add_argument('--push_gguf', action='store_true', help="Push the model as GGUF to Hugging Face hub after training")
     push_group.add_argument('--hub_path', type=str, default="hf/model", help="Path on Hugging Face hub to push the model")
