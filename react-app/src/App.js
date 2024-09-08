@@ -1210,22 +1210,13 @@ useEffect(() => {
                         displayEmpty
                         sx={{ mb: 2 }}
                       >
-                        <MenuItem value="">Select Validation File</MenuItem>
+                        <MenuItem value="">Select Validation File (Optional)</MenuItem>
                         {allFiles
                           .filter(file => file.name.endsWith('.parquet'))
                           .map((file) => (
                             <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
                           ))}
                       </Select>
-                      <TextField
-                        fullWidth
-                        label="Validation Split (%)"
-                        type="number"
-                        value={validationSplit}
-                        onChange={(e) => setValidationSplit(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))}
-                        inputProps={{ min: 0, max: 20 }}
-                        sx={{ mb: 2 }}
-                      />
                       <Select
                         fullWidth
                         value={selectedTestFile}
@@ -1294,16 +1285,6 @@ useEffect(() => {
                         onChange={(e) => setUnslothAccumulationSteps(Math.max(1, parseInt(e.target.value) || 1))}
                         inputProps={{ min: 1 }}
                         sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Custom Chat Template (optional)"
-                        multiline
-                        rows={4}
-                        value={customChatTemplate}
-                        onChange={(e) => setCustomChatTemplate(e.target.value)}
-                        sx={{ mb: 2 }}
-                        helperText="Enter a custom chat template if needed. Leave blank to use the default."
                       />
                       <Button 
                         fullWidth

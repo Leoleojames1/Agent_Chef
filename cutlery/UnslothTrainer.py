@@ -19,20 +19,28 @@ class UnslothTrainer:
             raise FileNotFoundError(f"unsloth-cli-2.py not found at {script_path}")
         return script_path
 
-    def train(self, model_name, train_dataset, output_dir="unsloth_model", **kwargs):
+    def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_dir="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
         self.logger.info(f"Model name: {model_name}")
         self.logger.info(f"Training dataset: {train_dataset}")
+        self.logger.info(f"Validation dataset: {validation_dataset}")
+        self.logger.info(f"Test dataset: {test_dataset}")
         self.logger.info(f"Output directory: {output_dir}")
         
-        # Use the provided train_dataset path directly
         cli_args = [
             "python",
             self.unsloth_script_path,
+            "train",
             "--model_name", model_name,
-            "--dataset", train_dataset,
+            "--train_dataset", train_dataset,
             "--output_dir", output_dir,
         ]
+
+        if validation_dataset:
+            cli_args.extend(["--validation_dataset", validation_dataset])
+        
+        if test_dataset:
+            cli_args.extend(["--test_dataset", test_dataset])
 
         # Handle precision option
         if kwargs.get('load_in_16bit'):
@@ -42,7 +50,7 @@ class UnslothTrainer:
 
         # Add any additional kwargs as CLI arguments
         for key, value in kwargs.items():
-            if key not in ['load_in_16bit', 'load_in_4bit']:  # Skip these as they're handled above
+            if key not in ['load_in_16bit', 'load_in_4bit']:
                 if isinstance(value, bool):
                     if value:
                         cli_args.append(f"--{key}")
@@ -66,11 +74,6 @@ class UnslothTrainer:
                 break
             self.logger.info(line.strip())
             output.append(line.strip())
-            
-            # You can add logic here to parse the output and extract progress information
-            if line.startswith("Progress:"):
-                progress = int(line.split(":")[1].strip().rstrip('%'))
-                # You can store this progress information or use it as needed
 
         process.wait()
 
@@ -80,3 +83,44 @@ class UnslothTrainer:
         else:
             self.logger.info("Training completed successfully")
             return {"message": "Training completed successfully", "output": "\n".join(output)}
+
+    def merge_adapter(self, base_model_path, adapter_path, output_path):
+        self.logger.info("Starting Unsloth adapter merging")
+        self.logger.info(f"Base model path: {base_model_path}")
+        self.logger.info(f"Adapter path: {adapter_path}")
+        self.logger.info(f"Output path: {output_path}")
+        
+        cli_args = [
+            "python",
+            self.unsloth_script_path,
+            "merge",
+            "--base_model_path", base_model_path,
+            "--adapter_path", adapter_path,
+            "--output_path", output_path,
+        ]
+
+        self.logger.info(f"Running command: {' '.join(cli_args)}")
+
+        process = subprocess.Popen(
+            cli_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+
+        output = []
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            self.logger.info(line.strip())
+            output.append(line.strip())
+
+        process.wait()
+
+        if process.returncode != 0:
+            self.logger.error("Merging failed")
+            return {"error": "Merging failed", "output": "\n".join(output)}
+        else:
+            self.logger.info("Merging completed successfully")
+            return {"message": "Merging completed successfully", "output": "\n".join(output)}

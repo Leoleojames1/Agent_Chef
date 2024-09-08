@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
 
 """
-🦥 Enhanced Script for Fine-Tuning FastLanguageModel with Unsloth
+🦥 Enhanced Script for Fine-Tuning and Merging FastLanguageModel with Unsloth
 
 This script extends the original unsloth-cli.py with additional features:
 - Validation split option for better performance monitoring
 - Improved error handling and fallback options for model loading
+- Merging functionality for LoRA adapters
 - [You can add more features here as needed]
 
-Usage example:
-    python unsloth-cli-2.py --model_name "your_model_path" --dataset "your_dataset_path" \
+Usage example for training:
+    python unsloth-cli-2.py train --model_name "your_model_path" --dataset "your_dataset_path" \
     --validation_split 0.1 --max_seq_length 2048 --load_in_4bit \
     --per_device_train_batch_size 4 --gradient_accumulation_steps 8 \
     --max_steps 1000 --learning_rate 2e-5 --output_dir "outputs" \
     --save_model --save_path "model" --quantization "q4_k_m"
 
-To see a full list of configurable options, use:
-    python unsloth-cli-2.py --help
+Usage example for merging:
+    python unsloth-cli-2.py merge --base_model_path "path/to/base/model" \
+    --adapter_path "path/to/adapter" --output_path "path/to/output"
 
-Happy fine-tuning!
+To see a full list of configurable options, use:
+    python unsloth-cli-2.py train --help
+    python unsloth-cli-2.py merge --help
+
+Happy fine-tuning and merging!
 """
 
 import argparse
@@ -125,6 +131,30 @@ def load_model_and_tokenizer(args):
 
     return model, tokenizer
 
+def merge_adapter(base_model_path, adapter_path, output_path):
+    logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
+    
+    try:
+        # Load the base model and adapter
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=base_model_path,
+            max_seq_length=2048,  # You might want to make this configurable
+            load_in_4bit=True,  # You might want to make this configurable
+        )
+        
+        # Load the adapter
+        model = FastLanguageModel.get_peft_model(model, adapter_path)
+        
+        # Merge and save the model
+        model.save_pretrained_merged(output_path, tokenizer, save_method="merged_16bit")
+        
+        logger.info(f"Merged model saved to {output_path}")
+        return {"message": "Adapter merged successfully", "output_path": output_path}
+    except Exception as e:
+        error_msg = f"Error merging adapter: {str(e)}"
+        logger.error(error_msg)
+        return {"error": error_msg}
+    
 def run(args):
     model, tokenizer = load_model_and_tokenizer(args)
 
@@ -142,24 +172,16 @@ def run(args):
         loftq_config=args.loftq_config,
     )
 
-    logger.info('=== Loading and Formatting Dataset ===')
-    dataset = load_dataset("parquet", data_files=args.dataset)
+    logger.info('=== Loading and Formatting Datasets ===')
+    train_dataset = load_dataset("parquet", data_files=args.train_dataset)['train']
     
-    if args.validation_split > 0:
-        # Convert percentage to fraction
-        validation_fraction = args.validation_split / 100.0
-        if validation_fraction >= 1:
-            logger.warning(f"Validation split {args.validation_split}% is too high. Setting it to 20%.")
-            validation_fraction = 0.2
-        train_test_split = dataset['train'].train_test_split(test_size=validation_fraction)
-        dataset = DatasetDict({
-            'train': train_test_split['train'],
-            'validation': train_test_split['test']
-        })
-    else:
-        dataset = DatasetDict({
-            'train': dataset['train']
-        })
+    eval_dataset = None
+    if args.validation_dataset:
+        eval_dataset = load_dataset("parquet", data_files=args.validation_dataset)['train']
+    
+    test_dataset = None
+    if args.test_dataset:
+        test_dataset = load_dataset("parquet", data_files=args.test_dataset)['train']
 
     def formatting_prompts_func(examples):
         instructions = examples.get("instruction", [""] * len(examples["input"]))
@@ -171,8 +193,17 @@ def run(args):
             texts.append(text + tokenizer.eos_token)
         return {"text": texts}
 
-    dataset = dataset.map(formatting_prompts_func, batched=True)
-    logger.info("Data is formatted and ready!")
+    train_dataset = train_dataset.map(formatting_prompts_func, batched=True)
+    if eval_dataset:
+        eval_dataset = eval_dataset.map(formatting_prompts_func, batched=True)
+    if test_dataset:
+        test_dataset = test_dataset.map(formatting_prompts_func, batched=True)
+
+    logger.info(f"Train dataset size: {len(train_dataset)}")
+    if eval_dataset:
+        logger.info(f"Validation dataset size: {len(eval_dataset)}")
+    if test_dataset:
+        logger.info(f"Test dataset size: {len(test_dataset)}")
 
     training_args = TrainingArguments(
         per_device_train_batch_size=args.per_device_train_batch_size,
@@ -189,13 +220,15 @@ def run(args):
         seed=args.seed,
         output_dir=args.output_dir,
         report_to=args.report_to,
+        evaluation_strategy="steps" if eval_dataset else "no",
+        eval_steps=args.logging_steps if eval_dataset else None,
     )
 
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset['train'],
-        eval_dataset=dataset.get('validation'),
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         dataset_text_field="text",
         max_seq_length=args.max_seq_length,
         dataset_num_proc=2,
@@ -206,6 +239,11 @@ def run(args):
     logger.info('=== Starting Training ===')
     trainer_stats = trainer.train()
     logger.info(trainer_stats)
+
+    if test_dataset:
+        logger.info('=== Evaluating on Test Dataset ===')
+        test_results = trainer.evaluate(test_dataset)
+        logger.info(f"Test Results: {test_results}")
 
     if args.save_model:
         logger.info('=== Saving Model ===')
@@ -241,16 +279,22 @@ def run(args):
         logger.warning("The model is not saved!")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="🦥 Enhanced fine-tuning script using Unsloth")
+    parser = argparse.ArgumentParser(description="🦥 Enhanced fine-tuning and merging script using Unsloth")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
-    model_group = parser.add_argument_group("🤖 Model Options")
+    # Training parser
+    train_parser = subparsers.add_parser("train", help="Train a model")
+    
+    model_group = train_parser.add_argument_group("🤖 Model Options")
     model_group.add_argument('--model_name', type=str, required=True, help="Model name or path to load")
     model_group.add_argument('--max_seq_length', type=int, default=2048, help="Maximum sequence length")
     model_group.add_argument('--dtype', type=str, default=None, help="Data type for model (None for auto detection)")
     model_group.add_argument('--load_in_4bit', action='store_true', help="Use 4-bit quantization")
     model_group.add_argument('--load_in_16bit', action='store_true', help="Use 16-bit precision")
-    model_group.add_argument('--dataset', type=str, required=True, help="Path to the parquet dataset file")
-    model_group.add_argument('--validation_split', type=float, default=0.0, help="Percentage of training data to use for validation (0.0 to 20.0)")
+    model_group.add_argument('--train_dataset', type=str, required=True, help="Path to the training parquet dataset file")
+    model_group.add_argument('--validation_dataset', type=str, help="Path to the validation parquet dataset file")
+    model_group.add_argument('--test_dataset', type=str, help="Path to the test parquet dataset file")
+
 
     lora_group = parser.add_argument_group("🧠 LoRA Options")
     lora_group.add_argument('--r', type=int, default=16, help="Rank for LoRA model")
@@ -291,16 +335,22 @@ if __name__ == "__main__":
     push_group.add_argument('--hub_path', type=str, default="hf/model", help="Path on Hugging Face hub to push the model")
     push_group.add_argument('--hub_token', type=str, help="Token for pushing the model to Hugging Face hub")
 
+    # Merging parser
+    merge_parser = subparsers.add_parser("merge", help="Merge a LoRA adapter")
+    merge_parser.add_argument('--base_model_path', type=str, required=True, help="Path to the base model")
+    merge_parser.add_argument('--adapter_path', type=str, required=True, help="Path to the LoRA adapter")
+    merge_parser.add_argument('--output_path', type=str, required=True, help="Path to save the merged model")
+
     args = parser.parse_args()
 
-    if args.load_in_4bit and args.load_in_16bit:
-        logger.error("Cannot use both 4-bit and 16-bit options simultaneously. Please choose one.")
-        exit(1)
-
-    try:
-        run(args)
-    except Exception as e:
-        logger.error(f"An error occurred during execution: {e}")
+    if args.command == "train":
+        if args.load_in_4bit and args.load_in_16bit:
+            logger.error("Cannot use both 4-bit and 16-bit options simultaneously. Please choose one.")
+            exit(1)
+        try:
+            run(args)
+        except Exception as e:
+            logger.error(f"An error occurred during execution: {e}")
         logger.info("Attempting to provide more information about the model...")
         
         model_dir = args.model_name if os.path.isdir(args.model_name) else os.path.dirname(args.model_name)
@@ -317,3 +367,12 @@ if __name__ == "__main__":
         logger.info("2. Verify that the model files are not corrupted.")
         logger.info("3. Check if the model is compatible with the current version of transformers and safetensors.")
         logger.info("4. Try updating your libraries: pip install --upgrade transformers safetensors")
+        
+    elif args.command == "merge":
+        result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
+        if "error" in result:
+            logger.error(result["error"])
+        else:
+            logger.info(result["message"])
+    else:
+        parser.print_help()

@@ -742,12 +742,13 @@ def unsloth_train():
     print(f"{Fore.CYAN}Received Unsloth training data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
     
     training_file = data.get('trainingFile')
+    validation_file = data.get('validationFile')
+    test_file = data.get('testFile')
     huggingface_model = data.get('huggingfaceModel')
     new_model_name = data.get('newModelName')
     num_train_epochs = data.get('numTrainEpochs', 1)
     per_device_train_batch_size = data.get('perDeviceTrainBatchSize', 2)
     gradient_accumulation_steps = data.get('gradientAccumulationSteps', 4)
-    validation_split = data.get('validationSplit', 0)
     precision = data.get('precision', '4bit')
 
     try:
@@ -757,14 +758,19 @@ def unsloth_train():
         if not huggingface_model:
             raise ValueError("Hugging Face model not specified")
 
-        # Search for the training file in multiple directories
+        # Search for the files in multiple directories
         possible_dirs = [input_dir, output_dir, salad_dir, edits_dir]
-        train_dataset_path = None
-        for dir_path in possible_dirs:
-            full_path = os.path.join(dir_path, training_file)
-            if os.path.exists(full_path):
-                train_dataset_path = full_path
-                break
+        
+        def find_file(filename):
+            for dir_path in possible_dirs:
+                full_path = os.path.join(dir_path, filename)
+                if os.path.exists(full_path):
+                    return full_path
+            return None
+
+        train_dataset_path = find_file(training_file)
+        validation_dataset_path = find_file(validation_file) if validation_file else None
+        test_dataset_path = find_file(test_file) if test_file else None
         
         if not train_dataset_path:
             raise FileNotFoundError(f"Training file '{training_file}' not found in any of the expected directories")
@@ -778,13 +784,14 @@ def unsloth_train():
         result = unsloth_trainer.train(
             model_name=os.path.join(huggingface_dir, huggingface_model),
             train_dataset=train_dataset_path,
+            validation_dataset=validation_dataset_path,
+            test_dataset=test_dataset_path,
             output_dir=model_output_dir,
             max_steps=num_train_epochs * 100,
             per_device_train_batch_size=per_device_train_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
             save_gguf=True,
             quantization="q4_k_m",
-            validation_split=validation_split,
             load_in_4bit=(precision == '4bit'),
             load_in_16bit=(precision == '16bit')
         )
