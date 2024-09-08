@@ -762,6 +762,8 @@ def unsloth_train():
         possible_dirs = [input_dir, output_dir, salad_dir, edits_dir]
         
         def find_file(filename):
+            if not filename:
+                return None
             for dir_path in possible_dirs:
                 full_path = os.path.join(dir_path, filename)
                 if os.path.exists(full_path):
@@ -769,8 +771,8 @@ def unsloth_train():
             return None
 
         train_dataset_path = find_file(training_file)
-        validation_dataset_path = find_file(validation_file) if validation_file else None
-        test_dataset_path = find_file(test_file) if test_file else None
+        validation_dataset_path = find_file(validation_file)
+        test_dataset_path = find_file(test_file)
         
         if not train_dataset_path:
             raise FileNotFoundError(f"Training file '{training_file}' not found in any of the expected directories")
