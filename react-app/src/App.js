@@ -39,6 +39,8 @@ import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Collapse from '@mui/material/Collapse';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 // Your custom components
 import CustomPromptEditor from './components/CustomPromptEditor';
@@ -192,6 +194,7 @@ function App() {
   const [mergeBaseModel, setMergeBaseModel] = useState('');
   const [mergeAdapterModel, setMergeAdapterModel] = useState('');
   const [mergeOutputName, setMergeOutputName] = useState('');
+  const [unslothMode, setUnslothMode] = useState('train');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
