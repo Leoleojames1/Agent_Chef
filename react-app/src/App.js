@@ -39,6 +39,7 @@ import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Collapse from '@mui/material/Collapse';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 
 // Your custom components
 import CustomPromptEditor from './components/CustomPromptEditor';
@@ -1220,121 +1221,167 @@ useEffect(() => {
                         Generate Synthetic Data
                       </Button>
                     </Paper>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h5" gutterBottom>Unsloth Training</Typography>
-                      <Select
-                        fullWidth
-                        value={selectedTrainingFile}
-                        onChange={(e) => setSelectedTrainingFile(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Training File</MenuItem>
-                        {allFiles
-                          .filter(file => file.name.endsWith('.parquet'))
-                          .map((file) => (
-                            <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
-                          ))}
-                      </Select>
-                      <Select
-                        fullWidth
-                        value={selectedValidationFile}
-                        onChange={(e) => setSelectedValidationFile(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Validation File (Optional)</MenuItem>
-                        {allFiles
-                          .filter(file => file.name.endsWith('.parquet'))
-                          .map((file) => (
-                            <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
-                          ))}
-                      </Select>
-                      <Select
-                        fullWidth
-                        value={selectedTestFile}
-                        onChange={(e) => setSelectedTestFile(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Test File (Optional)</MenuItem>
-                        {allFiles
-                          .filter(file => file.name.endsWith('.parquet'))
-                          .map((file) => (
-                            <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
-                          ))}
-                      </Select>
-                      <Select
-                        fullWidth
-                        value={selectedHuggingfaceModel}
-                        onChange={(e) => setSelectedHuggingfaceModel(e.target.value)}
-                        displayEmpty
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="">Select Hugging Face Model</MenuItem>
-                        {huggingfaceFolders.map((folder) => (
-                          <MenuItem key={folder} value={folder}>{folder}</MenuItem>
-                        ))}
-                      </Select>
-                      <TextField
-                        fullWidth
-                        label="New Model Name"
-                        value={newModelName}
-                        onChange={(e) => setNewModelName(e.target.value)}
-                        sx={{ mb: 2 }}
-                      />
-                      <Select
-                        fullWidth
-                        value={precision}
-                        onChange={(e) => setPrecision(e.target.value)}
-                        sx={{ mb: 2 }}
-                      >
-                        <MenuItem value="4bit">4-bit Precision</MenuItem>
-                        <MenuItem value="16bit">16-bit Precision</MenuItem>
-                      </Select>
-                      <TextField
-                        fullWidth
-                        label="Number of Training Epochs"
-                        type="number"
-                        value={unslothTrainingEpochs}
-                        onChange={(e) => setUnslothTrainingEpochs(Math.max(1, parseInt(e.target.value) || 1))}
-                        inputProps={{ min: 1 }}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Batch Size"
-                        type="number"
-                        value={unslothBatchSize}
-                        onChange={(e) => setUnslothBatchSize(Math.max(1, parseInt(e.target.value) || 1))}
-                        inputProps={{ min: 1 }}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Gradient Accumulation Steps"
-                        type="number"
-                        value={unslothAccumulationSteps}
-                        onChange={(e) => setUnslothAccumulationSteps(Math.max(1, parseInt(e.target.value) || 1))}
-                        inputProps={{ min: 1 }}
-                        sx={{ mb: 2 }}
-                      />
-                      <Button 
-                        fullWidth
-                        variant="contained" 
-                        onClick={runUnslothTraining}
-                        disabled={!selectedTrainingFile || !selectedHuggingfaceModel}
-                        sx={{ mb: 2 }}
-                      >
-                        Run Unsloth Training
-                      </Button>
-                      {showTrainingProgress && trainingProgress && (
-                        <TrainingProgressVisualization progress={trainingProgress.progress} metrics={trainingProgress.metrics} />
-                      )}
-                    </Paper>
-                  </Grid>
+                    <Grid item xs={12}>
+                      <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+                        <Typography variant="h5" gutterBottom>Unsloth Training and Merging</Typography>
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                          <InputLabel>Operation Mode</InputLabel>
+                          <Select
+                            value={unslothMode}
+                            onChange={(e) => setUnslothMode(e.target.value)}
+                          >
+                            <MenuItem value="train">Train</MenuItem>
+                            <MenuItem value="merge">Merge</MenuItem>
+                          </Select>
+                        </FormControl>
+                        
+                        {unslothMode === 'train' && (
+                          <>
+                            <Select
+                              fullWidth
+                              value={selectedTrainingFile}
+                              onChange={(e) => setSelectedTrainingFile(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Training File</MenuItem>
+                              {allFiles
+                                .filter(file => file.name.endsWith('.parquet'))
+                                .map((file) => (
+                                  <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
+                                ))}
+                            </Select>
+                            <Select
+                              fullWidth
+                              value={selectedValidationFile}
+                              onChange={(e) => setSelectedValidationFile(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Validation File (Optional)</MenuItem>
+                              {allFiles
+                                .filter(file => file.name.endsWith('.parquet'))
+                                .map((file) => (
+                                  <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
+                                ))}
+                            </Select>
+                            <Select
+                              fullWidth
+                              value={selectedTestFile}
+                              onChange={(e) => setSelectedTestFile(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Test File (Optional)</MenuItem>
+                              {allFiles
+                                .filter(file => file.name.endsWith('.parquet'))
+                                .map((file) => (
+                                  <MenuItem key={file.name} value={file.name}>{file.name}</MenuItem>
+                                ))}
+                            </Select>
+                            <Select
+                              fullWidth
+                              value={selectedHuggingfaceModel}
+                              onChange={(e) => setSelectedHuggingfaceModel(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Hugging Face Model</MenuItem>
+                              {huggingfaceFolders.map((folder) => (
+                                <MenuItem key={folder} value={folder}>{folder}</MenuItem>
+                              ))}
+                            </Select>
+                            <TextField
+                              fullWidth
+                              label="New Model Name"
+                              value={newModelName}
+                              onChange={(e) => setNewModelName(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                            <Select
+                              fullWidth
+                              value={precision}
+                              onChange={(e) => setPrecision(e.target.value)}
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="4bit">4-bit Precision</MenuItem>
+                              <MenuItem value="16bit">16-bit Precision</MenuItem>
+                            </Select>
+                            <TextField
+                              fullWidth
+                              label="Number of Training Epochs"
+                              type="number"
+                              value={unslothTrainingEpochs}
+                              onChange={(e) => setUnslothTrainingEpochs(Math.max(1, parseInt(e.target.value) || 1))}
+                              inputProps={{ min: 1 }}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              label="Batch Size"
+                              type="number"
+                              value={unslothBatchSize}
+                              onChange={(e) => setUnslothBatchSize(Math.max(1, parseInt(e.target.value) || 1))}
+                              inputProps={{ min: 1 }}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              label="Gradient Accumulation Steps"
+                              type="number"
+                              value={unslothAccumulationSteps}
+                              onChange={(e) => setUnslothAccumulationSteps(Math.max(1, parseInt(e.target.value) || 1))}
+                              inputProps={{ min: 1 }}
+                              sx={{ mb: 2 }}
+                            />
+                          </>
+                        )}
+                        
+                        {unslothMode === 'merge' && (
+                          <>
+                            <TextField
+                              fullWidth
+                              label="Base Model Path"
+                              value={mergeBaseModel}
+                              onChange={(e) => setMergeBaseModel(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              label="Adapter Model Path"
+                              value={mergeAdapterModel}
+                              onChange={(e) => setMergeAdapterModel(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              label="Output Model Name"
+                              value={mergeOutputName}
+                              onChange={(e) => setMergeOutputName(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                          </>
+                        )}
+                        
+                        <Button 
+                          fullWidth
+                          variant="contained" 
+                          onClick={unslothMode === 'train' ? runUnslothTraining : runUnslothMerge}
+                          disabled={
+                            unslothMode === 'train'
+                              ? !selectedTrainingFile || !selectedHuggingfaceModel
+                              : !mergeBaseModel || !mergeAdapterModel || !mergeOutputName
+                          }
+                          sx={{ mb: 2 }}
+                        >
+                          {unslothMode === 'train' ? 'Run Unsloth Training' : 'Run Unsloth Merge'}
+                        </Button>
+                        
+                        {showTrainingProgress && trainingProgress && (
+                          <TrainingProgressVisualization progress={trainingProgress.progress} metrics={trainingProgress.metrics} />
+                        )}
+                      </Paper>
+                    </Grid>
               {error && (
                 <Grid item xs={12}>
                   <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.main' }}>
