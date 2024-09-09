@@ -66,14 +66,23 @@ For windows install wsl, for linux move on to the next step:
 ```
 conda create -n AgentChef python=3.11
 conda activate AgentChef
-```
 
-clone repo
-run install.sh
+git clone https://github.com/Leoleojames1/Agent_Chef.git
+
+bash AgentChef_install.sh
+
 pip install -r requirements
-npm requirements
-git lfs enable
-c++ compiler install
+
+cd react-app
+npm install
+
+cd ..
+pip install huggingface_hub
+huggingface-cli login --token YOUR_TOKEN_HERE
+
+conda install -c conda-forge gcc_linux-64 gxx_linux-64
+gcc --version
+```
 
 ## Usage
 
