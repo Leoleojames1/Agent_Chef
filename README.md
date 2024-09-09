@@ -59,6 +59,15 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
 [Instructions on how to install and set up Agent Chef]
 
+Install wsl or linux
+install miniconda and create env
+clone repo
+run install.sh
+pip install -r requirements
+npm requirements
+git lfs enable
+c++ compiler install
+
 ## Usage
 
 [Basic usage instructions and examples]
