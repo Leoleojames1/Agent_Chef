@@ -752,8 +752,8 @@ def unsloth_train():
     precision = data.get('precision', '4bit')
 
     try:
-        if not training_file:
-            raise ValueError("Training file must be specified")
+        if not training_file or not huggingface_model:
+            raise ValueError("Training file and Hugging Face model must be specified")
 
         if not huggingface_model:
             raise ValueError("Hugging Face model not specified")
