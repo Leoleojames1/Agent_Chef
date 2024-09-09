@@ -57,7 +57,7 @@ src="docs/icons/OARC_commander_synth.png"
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
 
-Agent Chef Installation Guide
+# Agent Chef Installation Guide
 
 Prerequisites:
 
