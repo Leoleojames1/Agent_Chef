@@ -81,6 +81,8 @@ conda activate AgentChef
 ```
 Clone repo:
 ```
+cd ~
+(base) user@DESKTOP:~$
 git clone https://github.com/Leoleojames1/Agent_Chef.git
 
 bash AgentChef_install.sh
