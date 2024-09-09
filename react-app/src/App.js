@@ -39,6 +39,7 @@ import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Collapse from '@mui/material/Collapse';
+import { FormControl, InputLabel } from '@mui/material';
 
 // Your custom components
 import CustomPromptEditor from './components/CustomPromptEditor';
