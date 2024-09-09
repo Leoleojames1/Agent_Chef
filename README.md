@@ -56,11 +56,18 @@ After procedural dataset construction is complete, you can move on to generating
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
 
 ## Getting Started
-
 [Instructions on how to install and set up Agent Chef]
 
-Install wsl or linux
-install miniconda and create env
+For windows install wsl, for linux move on to the next step:
+[Install Wsl](https://learn.microsoft.com/en-us/windows/wsl/install) 
+
+[Install Miniconda](https://docs.anaconda.com/miniconda/miniconda-install/)
+
+```
+conda create -n AgentChef python=3.11
+conda activate AgentChef
+```
+
 clone repo
 run install.sh
 pip install -r requirements
