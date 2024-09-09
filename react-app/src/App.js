@@ -193,6 +193,7 @@ function App() {
   const [mergeBaseModel, setMergeBaseModel] = useState('');
   const [mergeAdapterModel, setMergeAdapterModel] = useState('');
   const [mergeOutputName, setMergeOutputName] = useState('');
+  const [unslothMode, setUnslothMode] = useState('train');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
