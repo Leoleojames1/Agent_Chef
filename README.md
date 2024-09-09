@@ -62,9 +62,12 @@ For windows install wsl, for linux move on to the next step:
 
 [Install Wsl](https://learn.microsoft.com/en-us/windows/wsl/install) 
 
-[Install Miniconda](https://docs.anaconda.com/miniconda/miniconda-install/)
-
 ```
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm ~/miniconda3/miniconda.sh
+
 cd ~
 (base) borch@DESKTOP-1B15QEP:~$
 
