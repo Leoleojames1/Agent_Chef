@@ -194,6 +194,7 @@ function App() {
   const [mergeAdapterModel, setMergeAdapterModel] = useState('');
   const [mergeOutputName, setMergeOutputName] = useState('');
   const [unslothMode, setUnslothMode] = useState('train');
+  const [adapterFiles, setAdapterFiles] = useState([]);
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -205,6 +206,26 @@ function App() {
   
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  useEffect(() => {
+    fetchAdapterFiles();
+  }, []);
+  
+  useEffect(() => {
+    if (mergeAdapterModel) {
+      setMergeOutputName(mergeAdapterModel.replace('checkpoint-', ''));
+    }
+  }, [mergeAdapterModel]);
+  
+  const fetchAdapterFiles = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/adapter-files');
+      setAdapterFiles(response.data.adapter_files);
+    } catch (error) {
+      console.error('Error fetching adapter files:', error);
+      setError('Error fetching adapter files');
+    }
   };
 
   useEffect(() => {
