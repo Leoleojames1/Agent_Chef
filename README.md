@@ -62,18 +62,23 @@ For windows install wsl, for linux move on to the next step:
 
 [Install Wsl](https://learn.microsoft.com/en-us/windows/wsl/install) 
 
+Install Miniconda in wsl or linux via command line:
 ```
 mkdir -p ~/miniconda3
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
 bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
 rm ~/miniconda3/miniconda.sh
-
+```
+Navigate to Home:
+```
 cd ~
 (base) borch@DESKTOP-1B15QEP:~$
 
 conda create -n AgentChef python=3.11
 conda activate AgentChef
-
+```
+Clone repo:
+```
 git clone https://github.com/Leoleojames1/Agent_Chef.git
 
 bash AgentChef_install.sh
@@ -82,7 +87,9 @@ pip install -r requirements
 
 cd react-app
 npm install
-
+```
+Setup HF and c++ compiler:
+```
 cd ..
 pip install huggingface_hub
 huggingface-cli login --token YOUR_TOKEN_HERE
