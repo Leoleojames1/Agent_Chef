@@ -87,6 +87,7 @@ cd ~
 (base) user@DESKTOP:~$
 git clone https://github.com/Leoleojames1/Agent_Chef.git
 
+cd Agent_Chef
 bash AgentChef_install.sh
 
 pip install -r requirements
@@ -108,4 +109,9 @@ gcc --version
 
 [Basic usage instructions and examples]
 
-Agent Chef: Cooking up better datasets for a smarter AI future!
+Setup HF and c++ compiler:
+```
+cd Agent_Chef
+conda activate AgentChef
+bash AgentChef_run.sh
+```
