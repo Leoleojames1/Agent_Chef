@@ -71,6 +71,7 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/
 bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
 rm ~/miniconda3/miniconda.sh
 ```
+
 Navigate to Home:
 ```
 cd ~
@@ -79,6 +80,7 @@ cd ~
 conda create -n AgentChef python=3.11
 conda activate AgentChef
 ```
+
 Clone repo:
 ```
 cd ~
