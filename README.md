@@ -111,7 +111,6 @@ gcc --version
 
 [Basic usage instructions and examples]
 
-Setup HF and c++ compiler:
 ```
 cd Agent_Chef
 conda activate AgentChef
