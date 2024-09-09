@@ -59,6 +59,7 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 [Instructions on how to install and set up Agent Chef]
 
 For windows install wsl, for linux move on to the next step:
+
 [Install Wsl](https://learn.microsoft.com/en-us/windows/wsl/install) 
 
 [Install Miniconda](https://docs.anaconda.com/miniconda/miniconda-install/)
