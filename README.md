@@ -64,6 +64,8 @@ For windows install wsl, for linux move on to the next step:
 
 Install Miniconda in wsl or linux via command line:
 ```
+cd ~
+(base) borch@DESKTOP-1B15QEP:~$
 mkdir -p ~/miniconda3
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
 bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
