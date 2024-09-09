@@ -65,6 +65,9 @@ For windows install wsl, for linux move on to the next step:
 [Install Miniconda](https://docs.anaconda.com/miniconda/miniconda-install/)
 
 ```
+cd ~
+(base) borch@DESKTOP-1B15QEP:~$
+
 conda create -n AgentChef python=3.11
 conda activate AgentChef
 
