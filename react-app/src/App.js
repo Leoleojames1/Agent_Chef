@@ -1334,20 +1334,30 @@ useEffect(() => {
                       {unslothMode === 'merge' && (
                         <>
                           <Typography variant="h6" gutterBottom>Merge Configuration</Typography>
-                          <TextField
+                          <Select
                             fullWidth
-                            label="Base Model Path"
                             value={mergeBaseModel}
                             onChange={(e) => setMergeBaseModel(e.target.value)}
+                            displayEmpty
                             sx={{ mb: 2 }}
-                          />
-                          <TextField
+                          >
+                            <MenuItem value="">Select Base Model (from Hugging Face folder)</MenuItem>
+                            {huggingfaceFolders.map((folder) => (
+                              <MenuItem key={folder} value={folder}>{folder}</MenuItem>
+                            ))}
+                          </Select>
+                          <Select
                             fullWidth
-                            label="Adapter Model Path"
                             value={mergeAdapterModel}
                             onChange={(e) => setMergeAdapterModel(e.target.value)}
+                            displayEmpty
                             sx={{ mb: 2 }}
-                          />
+                          >
+                            <MenuItem value="">Select Adapter Model (from Oven folder)</MenuItem>
+                            {adapterFiles.map((file) => (
+                              <MenuItem key={file} value={file}>{file}</MenuItem>
+                            ))}
+                          </Select>
                           <TextField
                             fullWidth
                             label="Output Model Name"

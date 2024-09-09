@@ -832,6 +832,19 @@ def unsloth_generate():
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
     
+@app.route('/api/adapter-files', methods=['GET'])
+def get_adapter_files():
+    try:
+        adapter_files = []
+        for root, dirs, files in os.walk(oven_dir):
+            for dir in dirs:
+                if dir.startswith('checkpoint-'):
+                    adapter_files.append(os.path.join(os.path.relpath(root, oven_dir), dir))
+        return jsonify({"adapter_files": adapter_files})
+    except Exception as e:
+        logging.exception("Error fetching adapter files")
+        return jsonify({"error": str(e), "message": "Error fetching adapter files"}), 500
+    
 @app.route('/api/merge_adapter', methods=['POST'])
 def merge_adapter():
     data = request.json
