@@ -49,8 +49,10 @@ These group tags allow agent chef to splice the data out into the correct parque
   
 ## Synthetic Generation
 After procedural dataset construction is complete, you can move on to generating the synthetic dataset from the procedural parquet.
-  [Insert Image]
-  
+<img
+src="docs/icons/OARC_commander_synth.png"
+  style="display: inline-block; margin: 0 auto; max-width: 50px">
+
 ## Why Agent Chef?
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
