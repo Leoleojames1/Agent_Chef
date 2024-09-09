@@ -136,19 +136,32 @@ def merge_adapter(base_model_path, adapter_path, output_path):
     
     try:
         # Load the base model and adapter
+        logger.info("Loading base model...")
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=base_model_path,
             max_seq_length=2048,  # You might want to make this configurable
             load_in_4bit=True,  # You might want to make this configurable
         )
+        logger.info("Base model loaded successfully")
         
         # Load the adapter
-        model = FastLanguageModel.get_peft_model(model, adapter_path)
+        logger.info("Loading adapter...")
+        try:
+            model = FastLanguageModel.get_peft_model(model, adapter_path)
+            logger.info("Adapter loaded successfully")
+        except Exception as adapter_error:
+            logger.error(f"Error loading adapter: {str(adapter_error)}")
+            return {"error": f"Failed to load adapter: {str(adapter_error)}"}
         
         # Merge and save the model
-        model.save_pretrained_merged(output_path, tokenizer, save_method="merged_16bit")
+        logger.info("Merging and saving the model...")
+        try:
+            model.save_pretrained_merged(output_path, tokenizer, save_method="merged_16bit")
+            logger.info(f"Merged model saved to {output_path}")
+        except Exception as save_error:
+            logger.error(f"Error saving merged model: {str(save_error)}")
+            return {"error": f"Failed to save merged model: {str(save_error)}"}
         
-        logger.info(f"Merged model saved to {output_path}")
         return {"message": "Adapter merged successfully", "output_path": output_path}
     except Exception as e:
         error_msg = f"Error merging adapter: {str(e)}"
