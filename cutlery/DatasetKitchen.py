@@ -683,6 +683,7 @@ class TemplateManager:
     def create_default_templates(self):
         return {
             "chat": ["instruction", "input", "output"],
+            "chat_task": ["task", "instruction", "input", "output"],
             "chat_modeltag": ["instruction", "input", "output"],
             "instruct": ["task", "instruction", "input", "output", "generationModel"],
             "instruct_modeltag": ["task", "instruction", "input", "output"],
