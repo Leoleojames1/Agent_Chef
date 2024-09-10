@@ -13,10 +13,6 @@
 
 ## Features
 
-<img
-src="docs/agent_chef_poster.jpeg"
-  style="display: inline-block; margin: 0 auto; max-width: 10px">
-  
 - 🥕**Dataset Refinement**🥩:
   - Clean and refine your existing datasets
 - 🥣**Synthetic Data Generation**🥣:
