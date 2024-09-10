@@ -1,0 +1,11 @@
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/swap" command does.")
+$("The "/swap" command in Ollama Agent Roll Cage allows the user to select and swap the current ollama llm model with another ollama llm model.")
+$("/swap")
+
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/agent select" command does.")
+$("The "/agent select" command allows the user to select which agent template should be loaded into, and used by Ollama Agent Roll Cage.")
+$("/agent select")
