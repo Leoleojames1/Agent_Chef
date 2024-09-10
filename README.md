@@ -92,6 +92,7 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
    ```bash
    conda create -n AgentChef python=3.11 -y
+   close and reopen terminal
    conda activate AgentChef
    ```
 
