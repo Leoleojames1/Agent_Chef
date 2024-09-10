@@ -13,6 +13,10 @@
 
 ## Features
 
+<img
+src="docs/agent_chef_poster.jpeg"
+  style="display: inline-block; margin: 0 auto; max-width: 30px">
+  
 - 🥕**Dataset Refinement**🥩:
   - Clean and refine your existing datasets
 - 🥣**Synthetic Data Generation**🥣:
@@ -25,11 +29,6 @@
   - Programming: Python, React, C++
   - Mathematics: LaTeX, Python
   - Languages, Physics, Biology, Chemistry, Law, Cooking, wikipedias, history, context, and more!
-
-<img
-src="docs/agent_chef_poster.jpeg"
-  style="display: inline-block; margin: 0 auto; max-width: 50px">
-
 
 ## Setup
 Start by selecting your ollama model, system prompt, number of duplicates, and the parquet column template format.
