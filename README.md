@@ -58,104 +58,144 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
 ## Agent Chef Installation Guide
 
-Prerequisites:
+### Prerequisites:
 
-Windows Users:
+#### Windows Users:
 1. Install Windows Subsystem for Linux (WSL):
-   - Follow the official Microsoft guide to install WSL:
-     https://learn.microsoft.com/en-us/windows/wsl/install
-   - After installation, open a WSL terminal for the next steps.
+   * Follow the official Microsoft guide to install WSL: https://learn.microsoft.com/en-us/windows/wsl/install
+   * After installation, open a WSL terminal for the next steps.
 
-Linux Users:
-- Skip the WSL installation step.
+#### Linux Users:
+* Skip the WSL installation step.
 
-Installation Steps:
+### Installation Steps:
 
-1. Install Miniconda
+1. Install Miniconda:
    Open a terminal and run the following commands:
-   
-   ```
+
+   ```bash
    cd ~
    mkdir -p ~/miniconda3
    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
    rm ~/miniconda3/miniconda.sh
    ```
-   
+
    Add Miniconda to your PATH:
-   
-   ```
+
+   ```bash
    echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bashrc
    source ~/.bashrc
    ```
 
-2. Create and Activate Conda Environment
-   
-   ```
+2. Create and Activate Conda Environment:
+
+   ```bash
    conda create -n AgentChef python=3.11 -y
    conda activate AgentChef
    ```
 
-3. Clone the Repository
-   
-   ```
+3. Clone the Repository:
+
+   ```bash
    cd ~
    git clone https://github.com/Leoleojames1/Agent_Chef.git
    cd Agent_Chef
    ```
 
-4. Install Dependencies
-   
-   ```
+4. Install Dependencies:
+
+   ```bash
    bash AgentChef_install.sh
    pip install -r requirements.txt
    ```
 
-5. Install Node.js Dependencies
+5. Install Node.js and npm:
    
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+   sudo apt-get install -y nodejs
    ```
+
+6. Install React App Dependencies:
+
+   ```bash
    cd react-app
+   npm cache clean --force
+   rm -rf node_modules package-lock.json
    npm install
    cd ..
    ```
 
-6. Setup Hugging Face and C++ Compiler
-   
+   If you encounter permission issues, run:
+
+   ```bash
+   sudo chown -R $(whoami) ~/.npm
+   sudo chown -R $(whoami) ~/Agent_Chef/react-app
    ```
+
+7. Setup Hugging Face and C++ Compiler:
+
+   ```bash
    pip install huggingface_hub
    huggingface-cli login --token YOUR_TOKEN_HERE
    conda install -c conda-forge gcc_linux-64 gxx_linux-64 -y
    gcc --version
    ```
-   
-   Replace YOUR_TOKEN_HERE with your actual Hugging Face token.
 
-Usage:
+   Replace `YOUR_TOKEN_HERE` with your actual Hugging Face token.
+
+## Usage:
 
 To run Agent Chef:
 
 1. Navigate to the Agent Chef directory:
-   
-   ```
+
+   ```bash
    cd ~/Agent_Chef
    ```
 
 2. Activate the conda environment:
-   
-   ```
+
+   ```bash
    conda activate AgentChef
    ```
 
 3. Run the application:
-   
-   ```
+
+   ```bash
    bash AgentChef_run.sh
    ```
 
-Troubleshooting:
+## Troubleshooting:
 
-- If you encounter any issues during installation, please check the project's GitHub issues or create a new issue for support:
-  https://github.com/Leoleojames1/Agent_Chef/issues
-- Ensure all prerequisites are correctly installed and your system meets the minimum requirements.
+If you encounter issues with the React app:
 
-For more detailed information and advanced usage, please refer to the project's documentation.
+1. Ensure you're using the correct Node.js version:
+   ```bash
+   node --version
+   ```
+   If it's not v14 or higher, update Node.js.
+
+2. If you see "ENOTEMPTY" errors, try:
+   ```bash
+   cd ~/Agent_Chef/react-app
+   rm -rf node_modules
+   npm cache clean --force
+   npm install
+   ```
+
+3. If you encounter permission issues:
+   ```bash
+   sudo chown -R $(whoami) ~/.npm
+   sudo chown -R $(whoami) ~/Agent_Chef/react-app
+   ```
+
+4. If the React app fails to start, try running it manually:
+   ```bash
+   cd ~/Agent_Chef/react-app
+   npm start
+   ```
+   This will provide more detailed error messages if there are issues.
+
+If problems persist, please open an issue on the GitHub repository with the full error message and the output of `npm --version` and `node --version`.
