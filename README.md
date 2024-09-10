@@ -199,3 +199,41 @@ If you encounter issues with the React app:
    This will provide more detailed error messages if there are issues.
 
 If problems persist, please open an issue on the GitHub repository with the full error message and the output of `npm --version` and `node --version`.
+
+## Important Note for WSL and Windows Users
+
+If you use both WSL and Windows environments to run Ollama, you may encounter the following error when trying to run Ollama on Windows after using it in WSL:
+
+```
+Error: listen tcp 127.0.0.1:11434: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+```
+
+### How to Fix:
+
+If you encounter this error, it means Ollama is still running in your WSL environment and blocking the port on your Windows host. To resolve this:
+
+1. Open your WSL terminal.
+
+2. Stop the Ollama service in WSL by running:
+
+   ```bash
+   sudo service ollama stop
+   ```
+
+3. You can now close the WSL terminal and return to Windows.
+
+4. Try running Ollama in Windows again:
+
+   ```
+   ollama serve
+   ```
+
+This should resolve the port conflict and allow you to run Ollama on Windows.
+
+### Prevention:
+
+To avoid this issue in the future, always remember to stop the Ollama service in WSL before closing your WSL session if you plan to use Ollama on Windows afterwards.
+
+### Note:
+
+If you primarily use Ollama in one environment (either WSL or Windows), consider using it exclusively in that environment to avoid such conflicts.
