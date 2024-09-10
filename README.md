@@ -92,13 +92,16 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
    ```bash
    conda create -n AgentChef python=3.11 -y
+   close and reopen terminal
    conda activate AgentChef
    ```
 
-3. Clone the Repository:
+3. Clone the Repository INTO HOME FOLDER:
 
    ```bash
    cd ~
+   MAKE SURE YOU ARE IN YOUR CD HOME WHEN YOU CLONE AGENT_CHEF
+   (AgentChef) user@name:/home$
    git clone https://github.com/Leoleojames1/Agent_Chef.git
    cd Agent_Chef
    ```
