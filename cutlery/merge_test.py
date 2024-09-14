@@ -76,9 +76,9 @@ def convert_to_gguf(input_path, output_dir):
         print(e.output)
 
 if __name__ == "__main__":
-    base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
-    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/checkpoint-900"
-    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/900"
+    base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-abliterated"
+    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-abliterated_OARC_Commander_v001/checkpoint-900"
+    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-abliterated_OARC_Commander_v001/900"
 
     print("Select an option:")
     print("1. Merge adapter")
