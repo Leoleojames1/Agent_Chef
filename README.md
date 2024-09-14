@@ -34,7 +34,19 @@ src="docs/tutorial/1_Agent_Chef_setup_selectors.png"
 
 ## Procedural construction
 After setup, manually construct your dataset group formatting by wrapping each data point in $("data") wrappers.
+```
+$("command_description")
+$("Instruction")
+$("Input")
+$("Output")
+$("Command")
 
+$("command_description")
+$("Instruction")
+$("Input")
+...
+For each datapoint in the parquet
+```
 <img
 src="docs/tutorial/2_Agent_Chef_setup_txt_format.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
