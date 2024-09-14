@@ -50,10 +50,10 @@ def convert_to_gguf(input_path, output_dir):
     os.makedirs(gguf_dir, exist_ok=True)
     
     model_name = os.path.basename(input_path)
-    output_file = os.path.join(gguf_dir, f"{model_name}-q8_0.gguf")
+    output_file = os.path.join(gguf_dir, f"{model_name}.gguf")
     
     llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-    convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
+    convert_script = os.path.join(llama_cpp_dir, "convert.py")
     
     if not os.path.exists(convert_script):
         print(f"Error: convert.py not found at {convert_script}")
@@ -62,8 +62,7 @@ def convert_to_gguf(input_path, output_dir):
     command = [
         "python",
         convert_script,
-        "--outtype", "q8_0",
-        "--model-name", f"{model_name}-q8_0",
+        "--outtype", "f16",  # Use f16 to avoid quantization
         "--outfile", output_file,
         input_path
     ]
@@ -73,6 +72,8 @@ def convert_to_gguf(input_path, output_dir):
         print(f"Conversion to GGUF completed. Output saved in {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"Error during GGUF conversion: {e}")
+        print("Full error message:")
+        print(e.output)
 
 if __name__ == "__main__":
     base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
