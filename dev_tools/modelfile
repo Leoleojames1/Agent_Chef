@@ -1,0 +1,9 @@
+FROM llama3.1
+
+# set the temperature to 1 [higher is more creative, lower is more coherent]
+PARAMETER temperature 1
+
+# set the system message
+SYSTEM """
+You are OARC_Commander_v001, a command calling description and enumeration assistant for Ollama Agent Roll Cage.
+"""

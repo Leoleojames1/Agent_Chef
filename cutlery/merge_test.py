@@ -45,15 +45,9 @@ def merge_adapter(base_model_path, adapter_path, output_path):
     except Exception as e:
         print(f"Error saving merged model: {e}")
 
-def convert_to_gguf(input_path, output_dir):
-    gguf_dir = os.path.join(output_dir, "gguf")
-    os.makedirs(gguf_dir, exist_ok=True)
-    
-    model_name = os.path.basename(input_path)
-    output_file = os.path.join(gguf_dir, f"{model_name}.gguf")
-    
+def convert_to_gguf(input_path, output_file):
     llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-    convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
+    convert_script = os.path.join(llama_cpp_dir, "convert.py")
     
     if not os.path.exists(convert_script):
         print(f"Error: convert.py not found at {convert_script}")
@@ -77,8 +71,13 @@ def convert_to_gguf(input_path, output_dir):
 
 if __name__ == "__main__":
     base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-abliterated"
-    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-abliterated_OARC_Commander_v001/checkpoint-900"
-    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-abliterated_OARC_Commander_v001/900"
+    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/checkpoint-900"
+    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/900"
+    
+    # Create gguf folder
+    oven_dir = os.path.dirname(output_path)
+    gguf_dir = os.path.join(oven_dir, "gguf")
+    os.makedirs(gguf_dir, exist_ok=True)
 
     print("Select an option:")
     print("1. Merge adapter")
@@ -101,8 +100,8 @@ if __name__ == "__main__":
         merge_adapter(base_model_path, adapter_path, output_path)
 
     if choice in ['2', '3']:
-        input_path = output_path if choice == '3' else base_model_path
-        output_dir = os.path.dirname(input_path)
-        convert_to_gguf(input_path, output_dir)
+        # Convert merged model to GGUF
+        merged_gguf = os.path.join(gguf_dir, "merged_model.gguf")
+        convert_to_gguf(output_path, merged_gguf)
 
     print("Process completed.")
