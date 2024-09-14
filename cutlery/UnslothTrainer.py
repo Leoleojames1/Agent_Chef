@@ -13,11 +13,18 @@ class UnslothTrainer:
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
+        self.gguf_script_path = self._find_gguf_script()
 
     def _find_unsloth_script(self):
         script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"unsloth-cli-2.py not found at {script_path}")
+        return script_path
+
+    def _find_gguf_script(self):
+        script_path = os.path.join(self.cutlery_dir, 'safetensors_to_GGUF.sh')
+        if not os.path.exists(script_path):
+            raise FileNotFoundError(f"safetensors_to_GGUF.sh not found at {script_path}")
         return script_path
 
     def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_dir="unsloth_model", **kwargs):
@@ -83,9 +90,11 @@ class UnslothTrainer:
             return {"error": "Training failed", "output": "\n".join(output)}
         else:
             self.logger.info("Training completed successfully")
+            if kwargs.get('convert_to_gguf'):
+                self.convert_to_gguf(output_dir, os.path.basename(output_dir))
             return {"message": "Training completed successfully", "output": "\n".join(output)}
 
-    def merge_adapter(self, base_model_path, adapter_path, output_path):
+    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=False):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
         cli_args = [
@@ -121,4 +130,28 @@ class UnslothTrainer:
             return {"error": "Merging failed", "output": "\n".join(output)}
         else:
             self.logger.info("Merging completed successfully")
+            if convert_to_gguf:
+                self.convert_to_gguf(output_path, os.path.basename(output_path))
+                return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output)}
             return {"message": "Merging completed successfully", "output": "\n".join(output)}
+
+    def convert_to_gguf(self, input_dir, model_name):
+        self.logger.info(f"Converting model to GGUF format: {input_dir}")
+        gguf_dir = os.path.join(input_dir, "gguf")
+        os.makedirs(gguf_dir, exist_ok=True)
+
+        command = [
+            "bash",
+            self.gguf_script_path,
+            gguf_dir,
+            model_name
+        ]
+
+        self.logger.info(f"Running command: {' '.join(command)}")
+
+        try:
+            subprocess.run(command, check=True, cwd=self.base_dir)
+            self.logger.info(f"GGUF conversion completed. Output saved in {gguf_dir}")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Error during GGUF conversion: {e}")
+            self.logger.error(f"Command output: {e.output}")

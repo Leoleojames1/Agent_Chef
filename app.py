@@ -867,7 +867,7 @@ def merge_adapter():
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
         print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
-        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path)
+        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path, True)
 
         return jsonify({
             'message': 'Unsloth merge completed successfully',
