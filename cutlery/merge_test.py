@@ -53,7 +53,7 @@ def convert_to_gguf(input_path, output_dir):
     output_file = os.path.join(gguf_dir, f"{model_name}-q8_0.gguf")
     
     llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-    convert_script = os.path.join(llama_cpp_dir, "convert.py")
+    convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
     
     if not os.path.exists(convert_script):
         print(f"Error: convert.py not found at {convert_script}")
