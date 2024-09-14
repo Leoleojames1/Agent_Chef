@@ -52,9 +52,16 @@ def convert_to_gguf(input_path, output_dir):
     model_name = os.path.basename(input_path)
     output_file = os.path.join(gguf_dir, f"{model_name}-q8_0.gguf")
     
+    llama_cpp_dir = os.path.expanduser("~/llama.cpp")
+    convert_script = os.path.join(llama_cpp_dir, "convert.py")
+    
+    if not os.path.exists(convert_script):
+        print(f"Error: convert.py not found at {convert_script}")
+        return
+    
     command = [
         "python",
-        "/home/borch/llama.cpp/convert.py",  # Make sure this path is correct
+        convert_script,
         "--outtype", "q8_0",
         "--model-name", f"{model_name}-q8_0",
         "--outfile", output_file,
