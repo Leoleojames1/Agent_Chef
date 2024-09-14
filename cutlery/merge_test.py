@@ -47,10 +47,10 @@ def merge_adapter(base_model_path, adapter_path, output_path):
 
 def convert_to_gguf(input_path, output_dir):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    sh_file = os.path.join(script_dir, "safetensors_to_gguf.sh")
+    sh_file = os.path.join(script_dir, "safetensors_to_GGUF.sh")
     
     if not os.path.exists(sh_file):
-        print(f"Error: safetensors_to_gguf.sh not found in {script_dir}")
+        print(f"Error: safetensors_to_GGUF.sh not found in {script_dir}")
         return
     
     model_name = os.path.basename(input_path)
