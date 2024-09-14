@@ -196,21 +196,23 @@ def run(args):
     if args.test_dataset:
         test_dataset = load_dataset("parquet", data_files=args.test_dataset)['train']
 
-    def formatting_prompts_func(examples):
+    def formatting_prompts_func(examples, is_test=False):
         instructions = examples.get("instruction", [""] * len(examples["input"]))
         inputs = examples["input"]
-        outputs = examples["output"]
-        texts = []
-        for instruction, input, output in zip(instructions, inputs, outputs):
-            text = f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n{output}"
-            texts.append(text + tokenizer.eos_token)
-        return {"text": texts}
+        if not is_test:
+            outputs = examples["output"]
+            texts = [f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n{output}"
+                     for instruction, input, output in zip(instructions, inputs, outputs)]
+        else:
+            texts = [f"### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n"
+                     for instruction, input in zip(instructions, inputs)]
+        return {"text": [text + tokenizer.eos_token for text in texts]}
 
     train_dataset = train_dataset.map(formatting_prompts_func, batched=True)
     if eval_dataset:
         eval_dataset = eval_dataset.map(formatting_prompts_func, batched=True)
     if test_dataset:
-        test_dataset = test_dataset.map(formatting_prompts_func, batched=True)
+        test_dataset = test_dataset.map(lambda x: formatting_prompts_func(x, is_test=True), batched=True)
 
     logger.info(f"Train dataset size: {len(train_dataset)}")
     if eval_dataset:
@@ -254,9 +256,21 @@ def run(args):
     logger.info(trainer_stats)
 
     if test_dataset:
-        logger.info('=== Evaluating on Test Dataset ===')
-        test_results = trainer.evaluate(test_dataset)
-        logger.info(f"Test Results: {test_results}")
+        logger.info('=== Generating Responses for Test Dataset ===')
+        generated_outputs = []
+        for item in test_dataset:
+            input_text = item['text']
+            input_ids = tokenizer(input_text, return_tensors="pt").input_ids.to(model.device)
+            generated_ids = model.generate(input_ids, max_new_tokens=512)  # Adjust max_new_tokens as needed
+            generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+            generated_outputs.append(generated_text)
+        
+        # Create test_answered dataset
+        test_answered = test_dataset.add_column("generated_output", generated_outputs)
+        
+        # Save test_answered dataset
+        test_answered.to_parquet(os.path.join(args.output_dir, "test_answered.parquet"))
+        logger.info(f"Test set with generated responses saved to {os.path.join(args.output_dir, 'test_answered.parquet')}")
 
     if args.save_model:
         logger.info('=== Saving Model ===')
