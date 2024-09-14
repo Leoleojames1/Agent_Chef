@@ -286,7 +286,7 @@ If problems persist, please open an issue on the GitHub repository with the full
 
 ## Important Note for WSL and Windows Users
 
-If you use both WSL and Windows environments to run Ollama, you may encounter the following error when trying to run Ollama on Windows after using it in WSL:
+If you use both WSL and Windows environments to run Ollama & Unsloth, you may encounter the following error when trying to run Ollama on Windows after using it in WSL:
 
 ```
 Error: listen tcp 127.0.0.1:11434: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
@@ -298,10 +298,12 @@ If you encounter this error, it means Ollama is still running in your WSL enviro
 
 1. Open your WSL terminal.
 
-2. Stop the Ollama service in WSL by running:
+2. Stop the Unsloth or Ollama service in WSL by running:
 
    ```bash
    sudo service ollama stop
+   or
+   sudo service unsloth stop
    ```
 
 3. You can now close the WSL terminal and return to Windows.
