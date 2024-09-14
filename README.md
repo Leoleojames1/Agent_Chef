@@ -133,7 +133,7 @@ src="docs/test_ui/OARC_commander_synth.png"
 
 now that you have generated a training dataset, you must generate a sufficiently varied evaluation datasets, for my example I changed the dataset augmenter to say "Hey whats up.. " before every response, ultimately your eval set cannot match your train set, then once you have train and eval sets you must build a test set, utilizing the splice feature you can take and existing dataset, and splice out the output column to create a test set. Once you have these 3 sets you are ready to train a LORA adapter with unsloth that you will be able to merge into the base model.
   
-## Why Agent Chef?\
+## Why Agent Chef?
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
 
