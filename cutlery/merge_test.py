@@ -46,19 +46,26 @@ def merge_adapter(base_model_path, adapter_path, output_path):
         print(f"Error saving merged model: {e}")
 
 def convert_to_gguf(input_path, output_dir):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    sh_file = os.path.join(script_dir, "safetensors_to_GGUF.sh")
-    
-    if not os.path.exists(sh_file):
-        print(f"Error: safetensors_to_GGUF.sh not found in {script_dir}")
-        return
-    
-    model_name = os.path.basename(input_path)
     gguf_dir = os.path.join(output_dir, "gguf")
     os.makedirs(gguf_dir, exist_ok=True)
     
-    subprocess.run(["bash", sh_file, gguf_dir, model_name], check=True)
-    print(f"Conversion to GGUF completed. Output saved in {gguf_dir}")
+    model_name = os.path.basename(input_path)
+    output_file = os.path.join(gguf_dir, f"{model_name}-q8_0.gguf")
+    
+    command = [
+        "python",
+        "/home/borch/llama.cpp/convert.py",  # Update this path to where llama.cpp is installed
+        "--outtype", "q8_0",
+        "--model-name", f"{model_name}-q8_0",
+        "--outfile", output_file,
+        input_path
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+        print(f"Conversion to GGUF completed. Output saved in {output_file}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during GGUF conversion: {e}")
 
 if __name__ == "__main__":
     base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
