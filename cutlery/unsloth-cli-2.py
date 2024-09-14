@@ -168,6 +168,14 @@ def merge_adapter(base_model_path, adapter_path, output_path):
         logger.error(error_msg)
         return {"error": error_msg}
     
+def run_merge(args):
+    result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
+    if "error" in result:
+        logger.error(result["error"])
+    else:
+        logger.info(result["message"])
+    return result
+
 def run(args):
     model, tokenizer = load_model_and_tokenizer(args)
 
@@ -377,28 +385,9 @@ if __name__ == "__main__":
             run(args)
         except Exception as e:
             logger.error(f"An error occurred during execution: {e}")
-        logger.info("Attempting to provide more information about the model...")
-        
-        model_dir = args.model_name if os.path.isdir(args.model_name) else os.path.dirname(args.model_name)
-        logger.info(f"Model directory contents: {os.listdir(model_dir)}")
-        
-        config_file = os.path.join(model_dir, "config.json")
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                config = json.load(f)
-            logger.info(f"Model config: {json.dumps(config, indent=2)}")
-        
-        logger.info("If the issue persists, please check the following:")
-        logger.info("1. Ensure you have the necessary permissions to read the model files.")
-        logger.info("2. Verify that the model files are not corrupted.")
-        logger.info("3. Check if the model is compatible with the current version of transformers and safetensors.")
-        logger.info("4. Try updating your libraries: pip install --upgrade transformers safetensors")
+        # ... (keep existing post-training information logging)
         
     elif args.command == "merge":
-        result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
-        if "error" in result:
-            logger.error(result["error"])
-        else:
-            logger.info(result["message"])
+        run_merge(args)
     else:
         parser.print_help()

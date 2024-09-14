@@ -1,7 +1,8 @@
 import os
 import subprocess
 import logging
-import sys
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from unsloth import FastLanguageModel
 
 class UnslothTrainer:
     def __init__(self, base_dir, input_dir, output_dir):
@@ -85,10 +86,7 @@ class UnslothTrainer:
             return {"message": "Training completed successfully", "output": "\n".join(output)}
 
     def merge_adapter(self, base_model_path, adapter_path, output_path):
-        self.logger.info("Starting Unsloth adapter merging")
-        self.logger.info(f"Base model path: {base_model_path}")
-        self.logger.info(f"Adapter path: {adapter_path}")
-        self.logger.info(f"Output path: {output_path}")
+        self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
         cli_args = [
             "python",
@@ -96,7 +94,7 @@ class UnslothTrainer:
             "merge",
             "--base_model_path", base_model_path,
             "--adapter_path", adapter_path,
-            "--output_path", output_path,
+            "--output_path", output_path
         ]
 
         self.logger.info(f"Running command: {' '.join(cli_args)}")
