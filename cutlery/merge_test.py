@@ -54,7 +54,7 @@ def convert_to_gguf(input_path, output_dir):
     
     command = [
         "python",
-        "/home/borch/llama.cpp/convert.py",  # Update this path to where llama.cpp is installed
+        "/home/borch/llama.cpp/convert.py",  # Make sure this path is correct
         "--outtype", "q8_0",
         "--model-name", f"{model_name}-q8_0",
         "--outfile", output_file,
