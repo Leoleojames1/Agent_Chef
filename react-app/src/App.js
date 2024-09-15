@@ -1283,7 +1283,7 @@ useEffect(() => {
                         >
                           <MenuItem value="train">Train</MenuItem>
                           <MenuItem value="merge">Merge</MenuItem>
-                          <MenuItem value="merge">gguf_convert</MenuItem>
+                          <MenuItem value="gguf_convert">GGUF Convert</MenuItem>
                         </Select>
                       </FormControl>
 
