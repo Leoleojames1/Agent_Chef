@@ -13,6 +13,7 @@ from cutlery.OllamaInterface import OllamaInterface
 from cutlery.FileHandler import FileHandler
 from cutlery.UnslothTrainer import UnslothTrainer
 import subprocess
+import glob
 
 init(autoreset=True)
 
@@ -833,61 +834,6 @@ def get_adapter_files():
         logging.exception("Error fetching adapter and model files")
         return jsonify({"error": str(e), "message": "Error fetching adapter and model files"}), 500
     
-@app.route('/api/convert_to_gguf', methods=['POST'])
-def convert_to_gguf():
-    data = request.json
-    print(f"{Fore.CYAN}Received GGUF conversion data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
-    
-    input_path = data.get('inputPath')
-    output_name = data.get('outputName')
-    outtype = data.get('outtype', 'f16')
-
-    try:
-        if not input_path:
-            raise ValueError("Input model path must be specified")
-
-        # Construct the full path to the input model
-        full_input_path = os.path.join(oven_dir, input_path)
-        if not os.path.exists(full_input_path):
-            raise FileNotFoundError(f"Input model directory not found: {full_input_path}")
-
-        # Construct the path to the GGUF output directory
-        gguf_output_dir = os.path.join(oven_dir, "gguf_models")
-        os.makedirs(gguf_output_dir, exist_ok=True)
-
-        # Path to the safetensors_to_GGUF.sh script
-        script_path = os.path.join(base_dir, "safetensors_to_GGUF.sh")
-
-        # Construct the command
-        command = [
-            "bash", script_path,
-            gguf_output_dir,
-            output_name,
-            full_input_path
-        ]
-
-        print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
-        
-        # Run the command
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-
-        print(f"{Fore.GREEN}GGUF conversion completed successfully{Style.RESET_ALL}")
-        return jsonify({
-            'message': 'GGUF conversion completed successfully',
-            'output_file': os.path.join(gguf_output_dir, f"{output_name}-q8_0.gguf")
-        })
-
-    except subprocess.CalledProcessError as e:
-        error_msg = f"Error in GGUF conversion: {e.stderr}"
-        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
-        logging.exception(error_msg)
-        return jsonify({"error": error_msg}), 500
-    except Exception as e:
-        error_msg = f"Error in GGUF conversion: {str(e)}"
-        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
-        logging.exception(error_msg)
-        return jsonify({"error": error_msg}), 500
-    
 @app.route('/api/dequantize', methods=['POST'])
 def dequantize_model():
     data = request.json
@@ -968,6 +914,227 @@ def merge_adapter():
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
     
+@app.route('/api/gguf-files', methods=['GET'])
+def get_gguf_files():
+    try:
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        gguf_files = [os.path.basename(f) for f in glob.glob(os.path.join(gguf_dir, "*.gguf"))]
+        return jsonify({"gguf_files": gguf_files})
+    except Exception as e:
+        logging.exception("Error fetching GGUF files")
+        return jsonify({"error": str(e), "message": "Error fetching GGUF files"}), 500
+    
+@app.route('/api/gguf-info/<filename>', methods=['GET'])
+def get_gguf_info(filename):
+    try:
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        file_path = os.path.join(gguf_dir, filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+
+        # You might need to implement a function to extract GGUF info
+        # For now, we'll just return the file size and modification time
+        file_stats = os.stat(file_path)
+        file_info = {
+            "filename": filename,
+            "size": file_stats.st_size,
+            "modified": file_stats.st_mtime,
+            "quantization": "Unknown"  # You'll need to implement a way to determine this
+        }
+        return jsonify(file_info)
+    except Exception as e:
+        logging.exception(f"Error fetching GGUF file info for {filename}")
+        return jsonify({"error": str(e), "message": f"Error fetching GGUF file info for {filename}"}), 500
+
+@app.route('/api/quantize_gguf', methods=['POST'])
+def quantize_gguf():
+    data = request.json
+    print(f"{Fore.CYAN}Received GGUF quantization data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    input_path = data.get('inputPath')
+    output_name = data.get('outputName')
+    quantization_type = data.get('quantizationType')
+
+    try:
+        if not input_path or not output_name or not quantization_type:
+            raise ValueError("Input path, output name, and quantization type must be specified")
+
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        input_file = os.path.join(gguf_dir, input_path)
+        output_file = os.path.join(gguf_dir, f"{output_name}.gguf")
+
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input GGUF file not found: {input_file}")
+
+        # Path to the quantize script in llama.cpp
+        quantize_script = os.path.join(os.path.expanduser("~/llama.cpp"), "quantize")
+
+        command = [
+            quantize_script,
+            input_file,
+            output_file,
+            quantization_type
+        ]
+
+        print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
+        
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+
+        print(f"{Fore.GREEN}GGUF quantization completed successfully{Style.RESET_ALL}")
+        return jsonify({
+            'message': 'GGUF quantization completed successfully',
+            'output_file': output_file
+        })
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Error in GGUF quantization: {e.stderr}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    except Exception as e:
+        error_msg = f"Error in GGUF quantization: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
+# Modify the existing convert_to_gguf function to support more quantization types
+@app.route('/api/convert_to_gguf', methods=['POST'])
+def convert_to_gguf():
+    data = request.json
+    print(f"{Fore.CYAN}Received GGUF conversion data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    input_path = data.get('inputPath')
+    output_name = data.get('outputName')
+    quantization_type = data.get('quantizationType', 'q8_0')  # Default to q8_0 if not specified
+
+    try:
+        if not input_path:
+            raise ValueError("Input model path must be specified")
+
+        # Construct the full path to the input model
+        full_input_path = os.path.join(oven_dir, input_path)
+        if not os.path.exists(full_input_path):
+            raise FileNotFoundError(f"Input model directory not found: {full_input_path}")
+
+        # Construct the path to the GGUF output directory
+        gguf_output_dir = os.path.join(oven_dir, "gguf_models")
+        os.makedirs(gguf_output_dir, exist_ok=True)
+
+        # Path to the convert script in llama.cpp
+        convert_script = os.path.join(os.path.expanduser("~/llama.cpp"), "convert.py")
+
+        # Construct the command
+        command = [
+            "python", convert_script,
+            full_input_path,
+            "--outfile", os.path.join(gguf_output_dir, f"{output_name}.gguf"),
+            "--outtype", quantization_type
+        ]
+
+        print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
+        
+        # Run the command
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+
+        print(f"{Fore.GREEN}GGUF conversion completed successfully{Style.RESET_ALL}")
+        return jsonify({
+            'message': 'GGUF conversion completed successfully',
+            'output_file': os.path.join(gguf_output_dir, f"{output_name}.gguf")
+        })
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Error in GGUF conversion: {e.stderr}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    except Exception as e:
+        error_msg = f"Error in GGUF conversion: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
+@app.route('/api/gguf-files', methods=['GET'])
+def get_gguf_files():
+    try:
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        gguf_files = [os.path.basename(f) for f in glob.glob(os.path.join(gguf_dir, "*.gguf"))]
+        return jsonify({"gguf_files": gguf_files})
+    except Exception as e:
+        logging.exception("Error fetching GGUF files")
+        return jsonify({"error": str(e), "message": "Error fetching GGUF files"}), 500
+
+@app.route('/api/gguf-info/<filename>', methods=['GET'])
+def get_gguf_info(filename):
+    try:
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        file_path = os.path.join(gguf_dir, filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+
+        # You might need to implement a function to extract GGUF info
+        # For now, we'll just return the file size and modification time
+        file_stats = os.stat(file_path)
+        file_info = {
+            "filename": filename,
+            "size": file_stats.st_size,
+            "modified": file_stats.st_mtime,
+            "quantization": "Unknown"  # You'll need to implement a way to determine this
+        }
+        return jsonify(file_info)
+    except Exception as e:
+        logging.exception(f"Error fetching GGUF file info for {filename}")
+        return jsonify({"error": str(e), "message": f"Error fetching GGUF file info for {filename}"}), 500
+
+@app.route('/api/quantize_gguf', methods=['POST'])
+def quantize_gguf():
+    data = request.json
+    print(f"{Fore.CYAN}Received GGUF quantization data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    input_path = data.get('inputPath')
+    output_name = data.get('outputName')
+    quantization_type = data.get('quantizationType')
+
+    try:
+        if not input_path or not output_name or not quantization_type:
+            raise ValueError("Input path, output name, and quantization type must be specified")
+
+        gguf_dir = os.path.join(oven_dir, "gguf_models")
+        input_file = os.path.join(gguf_dir, input_path)
+        output_file = os.path.join(gguf_dir, f"{output_name}.gguf")
+
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input GGUF file not found: {input_file}")
+
+        # Path to the quantize script in llama.cpp
+        quantize_script = os.path.join(os.path.expanduser("~/llama.cpp"), "quantize")
+
+        command = [
+            quantize_script,
+            input_file,
+            output_file,
+            quantization_type
+        ]
+
+        print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
+        
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+
+        print(f"{Fore.GREEN}GGUF quantization completed successfully{Style.RESET_ALL}")
+        return jsonify({
+            'message': 'GGUF quantization completed successfully',
+            'output_file': output_file
+        })
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Error in GGUF quantization: {e.stderr}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    except Exception as e:
+        error_msg = f"Error in GGUF quantization: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
     
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
