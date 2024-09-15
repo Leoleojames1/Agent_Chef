@@ -125,6 +125,7 @@ class UnslothTrainer:
             return {"error": "Merging failed", "output": "\n".join(output)}
         else:
             self.logger.info("Merging completed successfully")
+            
             if convert_to_gguf:
                 self.logger.info("Starting GGUF conversion")
                 gguf_result = self.convert_to_gguf(output_path, os.path.basename(output_path))
@@ -134,6 +135,7 @@ class UnslothTrainer:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output)}
             return {"message": "Merging completed successfully", "output": "\n".join(output)}
 
+    
     def convert_to_gguf(self, input_path, model_name):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
         llama_cpp_dir = os.path.expanduser("~/llama.cpp")

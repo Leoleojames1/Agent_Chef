@@ -1,28 +1,63 @@
 #!/usr/bin/env python3
 
 """
-🦥 Enhanced Script for Fine-Tuning and Merging FastLanguageModel with Unsloth
+🦥 Enhanced Script for Fine-Tuning, Merging, and Managing Language Models with Unsloth
 
-This script extends the original unsloth-cli.py with additional features:
-- Validation split option for better performance monitoring
-- Improved error handling and fallback options for model loading
-- Merging functionality for LoRA adapters
-- Dequantization option for quantized models
-- [You can add more features here as needed]
+This script significantly extends the original unsloth-cli.py with a wide range of advanced features:
+
+- Comprehensive training pipeline with validation and testing support
+- Advanced error handling and fallback options for robust model loading
+- Merging functionality for LoRA adapters with dequantization options
+- Flexible quantization and precision control (4-bit, 16-bit, 32-bit)
+- Support for custom datasets and data formats (JSON, Parquet)
+- Integration with Hugging Face models and push-to-hub functionality
+- GGUF conversion for optimized model deployment
+- Enhanced logging and progress tracking
+
+Key Features:
+
+1. Flexible Data Handling:
+   - Support for Parquet, JSON, and other data formats
+   - Custom data parsing and processing pipelines
+
+2. Advanced Model Management:
+   - Load and save models in various formats (Hugging Face, GGUF)
+   - Quantization options for memory-efficient training and inference
+   - Dequantization capabilities for precision-sensitive operations
+
+3. Comprehensive Training Pipeline:
+   - Support for train, validation, and test datasets
+   - Customizable training parameters (batch size, learning rate, etc.)
+   - Integration with popular optimization techniques (LoRA, gradient checkpointing)
+
+4. Merging and Adaptation:
+   - Merge LoRA adapters with base models
+   - Dequantization options for merging quantized models
+
+5. Deployment and Sharing:
+   - GGUF conversion for optimized model deployment
+   - Direct integration with Hugging Face Hub for easy model sharing
+
+6. Robust Error Handling and Logging:
+   - Detailed error messages and logging for easier debugging
+   - Fallback options for model loading and processing
 
 Usage example for training:
-    python unsloth-cli-2.py train --model_name "your_model_path" --dataset "your_dataset_path" \
-    --validation_split 0.1 --max_seq_length 2048 --load_in_4bit \
+    python unsloth-cli-2.py train --model_name "your_model_path" --train_dataset "train.parquet" \
+    --validation_dataset "val.parquet" --test_dataset "test.parquet" \
+    --max_seq_length 2048 --load_in_4bit \
     --per_device_train_batch_size 4 --gradient_accumulation_steps 8 \
     --max_steps 1000 --learning_rate 2e-5 --output_dir "outputs" \
-    --save_model --save_path "model" --quantization "q4_k_m"
+    --save_model --save_path "model" --quantization "q4_k_m" \
+    --push_to_hub --hub_path "your_hub/model" --hub_token "your_token"
 
 Usage example for merging:
     python unsloth-cli-2.py merge --base_model_path "path/to/base/model" \
-    --adapter_path "path/to/adapter" --output_path "path/to/output"
+    --adapter_path "path/to/adapter" --output_path "path/to/output" \
+    --dequantize f16
 
 Usage example with dequantization:
-    python unsloth-cli-2.py train --model_name "your_model_path" --dataset "your_dataset_path" \
+    python unsloth-cli-2.py train --model_name "your_model_path" --train_dataset "train.parquet" \
     --load_in_4bit --dequantize
 
 Dequantization Feature:
@@ -44,7 +79,7 @@ To see a full list of configurable options, use:
     python unsloth-cli-2.py train --help
     python unsloth-cli-2.py merge --help
 
-Happy fine-tuning and merging!
+Happy fine-tuning, merging, and deploying with Unsloth! 🦥🚀
 """
 
 import argparse
@@ -163,6 +198,18 @@ def load_model_and_tokenizer(args):
     return model, tokenizer
 
 def merge_adapter(base_model_path, adapter_path, output_path, dequantize='no'):
+    """
+    Merge a LoRA adapter into a base model, with optional dequantization.
+    
+    Args:
+        base_model_path: Path to the base model
+        adapter_path: Path to the LoRA adapter
+        output_path: Path to save the merged model
+        dequantize: Dequantization option ('no', 'f16', or 'f32')
+    
+    Returns:
+        A dictionary with the merge result and output path
+    """
     logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
     
     try:
@@ -174,11 +221,9 @@ def merge_adapter(base_model_path, adapter_path, output_path, dequantize='no'):
         model = PeftModel.from_pretrained(base_model, adapter_path)
         
         if dequantize != 'no':
-            logger.info(f"Dequantizing LoRA weights to {dequantize}")
+            logger.info(f"Dequantizing model to {dequantize}")
             target_dtype = torch.float16 if dequantize == 'f16' else torch.float32
-            for name, param in model.named_parameters():
-                if 'lora' in name:
-                    param.data = param.data.to(target_dtype)
+            model = dequantize_weights(model, target_dtype)
         
         logger.info("Merging adapter with base model")
         merged_model = model.merge_and_unload()
@@ -195,22 +240,64 @@ def merge_adapter(base_model_path, adapter_path, output_path, dequantize='no'):
         return {"error": error_msg}
 
 def run_merge(args):
-    result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
+    """
+    Execute the merge operation based on command-line arguments.
+    
+    Args:
+        args: Command-line arguments
+    
+    Returns:
+        The result of the merge operation
+    """
+    result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path, args.dequantize)
     if "error" in result:
         logger.error(result["error"])
     else:
         logger.info(result["message"])
     return result
 
-def dequantize_weights(model):
-    import torch
-    from transformers import AutoModelForCausalLM
+def dequantize_model(input_path, output_path, precision):
+    logger.info(f"Dequantizing model from {input_path} to {output_path}")
+    
+    try:
+        import torch
 
+        model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
+        tokenizer = AutoTokenizer.from_pretrained(input_path)
+
+        target_dtype = torch.float16 if precision == 'f16' else torch.float32
+        model = dequantize_weights(model, target_dtype)
+
+        model.save_pretrained(output_path)
+        tokenizer.save_pretrained(output_path)
+
+        logger.info(f"Model dequantized and saved to {output_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error during model dequantization: {e}")
+        return False
+    
+def dequantize_weights(model, target_dtype=torch.float32):
+    """
+    Dequantize the weights of a quantized model to a target data type.
+    This is useful when merging models or performing operations that require full precision.
+    
+    Args:
+        model: The quantized model to dequantize
+        target_dtype: The target data type (default: torch.float32)
+    
+    Returns:
+        The dequantized model
+    """
     def dequantize_layer(layer):
         for name, param in layer.named_parameters():
             if hasattr(param, 'quant_state'):
-                param.data = param.data.dequantize()
+                # Dequantize quantized parameters
+                param.data = param.data.dequantize().to(target_dtype)
                 delattr(param, 'quant_state')
+            elif param.dtype != target_dtype:
+                # Convert non-quantized parameters to the target dtype
+                param.data = param.data.to(target_dtype)
 
     for module in model.modules():
         dequantize_layer(module)
@@ -445,8 +532,8 @@ if __name__ == "__main__":
         logger.info("3. Check if the model is compatible with the current version of transformers and safetensors.")
         logger.info("4. Try updating your libraries: pip install --upgrade transformers safetensors")
         
-    elif args.command == "merge":
-        result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
+    if args.command == "merge":
+        result = run_merge(args)
         if "error" in result:
             logger.error(result["error"])
         else:
