@@ -834,23 +834,42 @@ def convert_to_gguf():
         if not input_path:
             raise ValueError("Input model path must be specified")
 
-        unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
+        # Construct the full path to the input model's "900" directory
+        full_input_path = os.path.join(oven_dir, input_path, "900")
+        if not os.path.exists(full_input_path):
+            raise FileNotFoundError(f"Input model '900' directory not found: {full_input_path}")
+
+        # Construct the path to the GGUF output directory
+        gguf_output_dir = os.path.join(oven_dir, "gguf_models")
+        os.makedirs(gguf_output_dir, exist_ok=True)
+
+        # Path to the safetensors_to_GGUF.sh script
+        script_path = os.path.join(base_dir, "safetensors_to_GGUF.sh")
+
+        # Construct the command
+        command = [
+            "bash", script_path,
+            gguf_output_dir,
+            output_name,
+            full_input_path
+        ]
+
+        print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
         
-        full_input_path = unsloth_trainer.get_merged_model_path(input_path)
-        if not full_input_path:
-            raise FileNotFoundError(f"Input model not found: {input_path}")
+        # Run the command
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
 
-        print(f"{Fore.GREEN}Starting GGUF conversion for model: {full_input_path}{Style.RESET_ALL}")
-        result = unsloth_trainer.convert_to_gguf(full_input_path, output_name, outtype)
+        print(f"{Fore.GREEN}GGUF conversion completed successfully{Style.RESET_ALL}")
+        return jsonify({
+            'message': 'GGUF conversion completed successfully',
+            'output_file': os.path.join(gguf_output_dir, f"{output_name}-q8_0.gguf")
+        })
 
-        if result['success']:
-            return jsonify({
-                'message': 'GGUF conversion completed successfully',
-                'output_file': result['output_file']
-            })
-        else:
-            return jsonify({'error': result['error'], 'details': result['details']}), 400
-
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Error in GGUF conversion: {e.stderr}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
     except Exception as e:
         error_msg = f"Error in GGUF conversion: {str(e)}"
         print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
