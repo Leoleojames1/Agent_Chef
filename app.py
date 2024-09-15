@@ -874,21 +874,18 @@ def merge_adapter():
     dequantize = data.get('dequantize', 'no')  # 'no', 'f16', or 'f32'
 
     try:
-        if not base_model_path or not adapter_path or not output_path:
-            raise ValueError("Base model, adapter model, and output path must be specified")
+        if not base_model_path or not adapter_path or not output_name:
+            raise ValueError("Base model, adapter model, and output name must be specified")
 
-        base_model_path = os.path.join(huggingface_dir, base_model_path)
-        adapter_path = os.path.join(oven_dir, adapter_path)
-        output_path = os.path.join(oven_dir, output_path)
-
-        print(f"{Fore.GREEN}Initializing Unsloth merger{Style.RESET_ALL}")
-        
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
+        base_model_path = os.path.join(unsloth_trainer.models_dir, base_model_path)
+        adapter_path = os.path.join(unsloth_trainer.adapters_dir, adapter_path)
+
         print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
         result = unsloth_trainer.merge_adapter(
-            base_model_path=os.path.join(unsloth_trainer.models_dir, base_model_path),
-            adapter_path=os.path.join(unsloth_trainer.adapters_dir, adapter_path),
+            base_model_path=base_model_path,
+            adapter_path=adapter_path,
             output_name=output_name,
             convert_to_gguf=True,
             dequantize=dequantize
@@ -898,8 +895,7 @@ def merge_adapter():
         
         return jsonify({
             'message': 'Unsloth merge completed successfully',
-            'merge_result': result,
-            'output_path': output_path
+            'merge_result': result
         })
 
     except Exception as e:

@@ -2,7 +2,6 @@ import os
 import subprocess
 import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from unsloth import FastLanguageModel
 import shutil
 
 class UnslothTrainer:
@@ -90,26 +89,6 @@ class UnslothTrainer:
             if os.path.exists(adapter_path):
                 shutil.move(adapter_path, os.path.join(self.adapters_dir, f"{output_name}_adapter.bin"))
             return {"message": "Training completed successfully", "output": "\n".join(output), "model_path": output_dir}
-
-    def dequantize(self, input_path, output_name, precision='f16'):
-        self.logger.info(f"Dequantizing model: {input_path}")
-        output_path = os.path.join(self.models_dir, output_name)
-        
-        try:
-            model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
-            tokenizer = AutoTokenizer.from_pretrained(input_path)
-
-            target_dtype = torch.float16 if precision == 'f16' else torch.float32
-            model = self._dequantize_weights(model, target_dtype)
-
-            model.save_pretrained(output_path)
-            tokenizer.save_pretrained(output_path)
-
-            self.logger.info(f"Model dequantized and saved to {output_path}")
-            return {"success": True, "message": "Dequantization completed successfully", "output_path": output_path}
-        except Exception as e:
-            self.logger.error(f"Error during model dequantization: {e}")
-            return {"success": False, "error": str(e)}
         
     def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
