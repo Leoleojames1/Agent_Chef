@@ -108,7 +108,7 @@ class UnslothTrainer:
             final_output_path = os.path.join(merged_dir, original_output_name)
 
         # Ensure the final output directory exists
-        os.makedirs(os.path.dirname(final_output_path), exist_exist=True)
+        os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
 
         cli_args = [
             "python",
