@@ -809,14 +809,17 @@ def unsloth_generate():
 def get_adapter_files():
     try:
         adapter_files = []
+        oven_models = []
         for root, dirs, files in os.walk(oven_dir):
             for dir in dirs:
                 if dir.startswith('checkpoint-'):
                     adapter_files.append(os.path.join(os.path.relpath(root, oven_dir), dir))
-        return jsonify({"adapter_files": adapter_files})
+                elif os.path.isfile(os.path.join(root, dir, 'config.json')):  # Check if it's a model directory
+                    oven_models.append(os.path.join(os.path.relpath(root, oven_dir), dir))
+        return jsonify({"adapter_files": adapter_files, "oven_models": oven_models})
     except Exception as e:
-        logging.exception("Error fetching adapter files")
-        return jsonify({"error": str(e), "message": "Error fetching adapter files"}), 500
+        logging.exception("Error fetching adapter and oven model files")
+        return jsonify({"error": str(e), "message": "Error fetching adapter and oven model files"}), 500
     
 @app.route('/api/convert_to_gguf', methods=['POST'])
 def convert_to_gguf():

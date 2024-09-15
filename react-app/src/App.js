@@ -200,6 +200,7 @@ function App() {
   const [ggufInputModel, setGgufInputModel] = useState('');
   const [ggufOutputName, setGgufOutputName] = useState('');
   const [ggufOuttype, setGgufOuttype] = useState('f16');
+  const [ovenModels, setOvenModels] = useState([]);
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -227,9 +228,10 @@ function App() {
     try {
       const response = await axios.get('http://localhost:5000/api/adapter-files');
       setAdapterFiles(response.data.adapter_files);
+      setOvenModels(response.data.oven_models); // Add this line
     } catch (error) {
-      console.error('Error fetching adapter files:', error);
-      setError('Error fetching adapter files');
+      console.error('Error fetching adapter and oven model files:', error);
+      setError('Error fetching adapter and oven model files');
     }
   };
 
@@ -969,7 +971,7 @@ useEffect(() => {
       
       const dataToSend = {
         inputPath: ggufInputModel,
-        outputName: ggufOutputName,
+        outputName: ggufOutputName || ggufInputModel,
         outtype: ggufOuttype
       };
   
@@ -1451,15 +1453,13 @@ useEffect(() => {
                           >
                             <MenuItem value="">Select Input Model</MenuItem>
                             <ListSubheader>Hugging Face Models</ListSubheader>
-                            {huggingfaceFolders.map((model) => (
-                              <MenuItem key={`hf-${model}`} value={model}>{model}</MenuItem>
+                            {huggingfaceFolders.map((folder) => (
+                              <MenuItem key={`hf-${folder}`} value={folder}>{folder}</MenuItem>
                             ))}
                             <ListSubheader>Oven Models</ListSubheader>
-                            {allFiles
-                              .filter(file => file.type === 'oven')
-                              .map((file) => (
-                                <MenuItem key={`oven-${file.name}`} value={file.name}>{file.name}</MenuItem>
-                              ))}
+                            {ovenModels.map((model) => (
+                              <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
+                            ))}
                           </Select>
                           <TextField
                             fullWidth
