@@ -229,6 +229,16 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
    Replace `YOUR_TOKEN_HERE` with your actual Hugging Face token.
 
+8. Setup GitHub Access Token
+  **Create a `.env` File:**
+   - In the `Agent_Chef` directory, create a `.env` file with the following content:
+
+     ```sh
+     GITHUB_ACCESS_TOKEN=YOUR_GITHUB_ACCESS_TOKEN_HERE
+     ```
+
+   - Replace `YOUR_GITHUB_ACCESS_TOKEN_HERE` with your actual GitHub access token. You can generate a GitHub access token from [GitHub’s Developer Settings](https://github.com/settings/tokens).
+   
 ## Usage:
 
 To run Agent Chef:

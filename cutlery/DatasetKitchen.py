@@ -1,17 +1,22 @@
 import pandas as pd
 from tqdm import tqdm
 from datasets import load_dataset
-import json
 import numpy as np
-import glob
-import os
-import logging
-from colorama import Fore
-import time
-import re
-import random
-from colorama import Fore, Style
-from colorama import init
+from colorama import Fore, Style, init
+import os, json, urllib.parse, tarfile, gzip, shutil, requests, random, re, time, logging, glob
+from typing import List, Dict, Any, Optional
+
+# Import document loaders (assuming they're in a separate file)
+from langchain.document_loaders import (
+    WebBaseLoader, PyPDFLoader, TextLoader, Docx2txtLoader,
+    UnstructuredPowerPointLoader, WikipediaLoader, ArxivLoader,
+    UnstructuredEPubLoader, JSONLoader, CSVLoader
+)
+
+# Import external APIs (assuming they're in separate files)
+from huggingface_hub import snapshot_download, HfApi, hf_hub_download
+from github import Github
+from datasets import load_dataset
 init(autoreset=True)
 
 #TODO allow arxiv & hugging face links in ui for digestion and dataset construction
@@ -734,3 +739,415 @@ class TemplateManager:
         self.templates[template_name] = template_fields
         self.save_templates(self.templates)
         return self.templates[template_name]
+
+class DocumentLoader:
+    def __init__(self, github_access_token=None):
+        self.GITHUB_ACCESS_TOKEN = github_access_token
+
+    # URL
+    def is_url(self, string):
+        try:
+            result = urllib.parse.urlparse(string)
+            return all([result.scheme, result.netloc])
+        except ValueError:
+            return False
+
+    def is_huggingface_url(self, url):
+        return 'huggingface.co/' in url.lower()
+
+    def is_wikipedia_url(self, url):
+        parsed_url = urllib.parse.urlparse(url)
+        return parsed_url.netloc.endswith('wikipedia.org') and '/wiki/' in parsed_url.path
+
+    def is_arxiv_url(self, url):
+        return 'arxiv.org' in url.lower()
+
+    def is_github_url(self, url):
+        return 'github.com' in url.lower()
+
+    def load_web_page(self, url):
+        loader = WebBaseLoader(url)
+        return loader.load()
+
+    # WIKIPEDIA   
+    def extract_wikipedia_title(self, url):
+        parsed_url = urllib.parse.urlparse(url)
+        title = parsed_url.path.split('/wiki/', 1)[-1]
+        return urllib.parse.unquote(title).replace('_', ' ')
+
+    def load_wikipedia(self, query, load_max_docs=5):
+        loader = WikipediaLoader(query, load_max_docs=load_max_docs)
+        return loader.load()
+
+    # ARXIV
+    def extract_arxiv_id(self, url):
+        arxiv_id = url.rstrip('/').split('/')[-1]
+        return arxiv_id
+
+    def _download_latex_source(self, arxiv_id, output_dir):
+        try:
+            source_url = f"https://arxiv.org/e-print/{arxiv_id}"
+            filename = f"{arxiv_id.split('v')[0]}_source"
+            filepath = os.path.join(output_dir, filename)
+            response = requests.get(source_url)
+            response.raise_for_status()
+
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+
+            if tarfile.is_tarfile(filepath):
+                with tarfile.open(filepath, 'r') as tar:
+                    tar.extractall(path=filepath + '_extracted')
+                os.remove(filepath)
+                return f"LaTeX source extracted to: {filepath}_extracted"
+            elif filepath.endswith('.gz'):
+                with gzip.open(filepath, 'rb') as f_in:
+                    with open(filepath[:-3], 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                os.remove(filepath)
+                return f"LaTeX source extracted to: {filepath[:-3]}"
+            else:
+                return f"Source file downloaded to: {filepath}"
+        except Exception as e:
+            return f"Error downloading LaTeX source: {str(e)}"
+
+    def load_arxiv(self, query, load_max_docs=5):
+        loader = ArxivLoader(query, load_max_docs=load_max_docs)
+        return loader.load()
+
+    # DOCUMENTS
+    def load_pdf(self, file_path):
+        loader = PyPDFLoader(file_path)
+        return loader.load()
+
+    def load_text(self, file_path):
+        loader = TextLoader(file_path)
+        return loader.load()
+
+    def load_docx(self, file_path):
+        loader = Docx2txtLoader(file_path)
+        return loader.load()
+
+    def load_ppt(self, file_path):
+        loader = UnstructuredPowerPointLoader(file_path)
+        return loader.load()
+
+    def load_epub(self, file_path):
+        loader = UnstructuredEPubLoader(file_path)
+        return loader.load()
+
+    def load_csv(self, file_path):
+        loader = CSVLoader(file_path)
+        return loader.load()
+
+    def load_json(self, file_path):
+        loader = JSONLoader(
+            file_path=file_path,
+            jq_schema='.',
+            text_content=False
+        )
+        return loader.load()
+
+    # GITHUB
+    def extract_github_repo_info(self, url):
+        url = url.lower()
+        repo_index = url.find('github.com/')    
+        if repo_index != -1:
+            repo_part = url[repo_index + len('github.com/'):].rstrip('/')
+            parts = repo_part.split('/')        
+            if len(parts) >= 2:
+                repo_name = f"{parts[0]}/{parts[1]}"
+            else:
+                return None, None
+            if 'tree/' in url:
+                branch_index = url.find('tree/')
+                branch_name = url[branch_index + len('tree/'):].split('/')[0]
+            else:
+                branch_name = 'main'
+            return repo_name, branch_name
+        return None, None
+
+    def load_github(self, repo: str, branch: str) -> List[dict]:
+        g = Github(self.GITHUB_ACCESS_TOKEN)
+        repo = g.get_repo(repo)
+        contents = repo.get_contents("", ref=branch)
+        
+        files = []
+        while contents:
+            file_content = contents.pop(0)
+            if file_content.type == "dir":
+                contents.extend(repo.get_contents(file_content.path, ref=branch))
+            else:
+                files.append({
+                    "name": file_content.name,
+                    "path": file_content.path,
+                    "download_url": file_content.download_url
+                })
+        
+        return files
+
+    def select_github_files(self, files: List[dict]) -> List[dict]:
+        print("Available files in the repository:")
+        for file in files:
+            print(f"{file['path']}")
+        
+        selected_files = []
+        while True:
+            file_path = input("Enter the path of a file you want to download (or press Enter to finish): ").strip()
+            if not file_path:
+                break
+            matching_files = [f for f in files if f['path'] == file_path]
+            if matching_files:
+                selected_files.extend(matching_files)
+                print(f"Added: {file_path}")
+            else:
+                print(f"File not found: {file_path}")
+        
+        return selected_files
+
+    # HUGGINGFACE
+    def hf_repo(self, repo_id):
+        loader = snapshot_download(repo_id=repo_id)
+        return loader.load()
+
+    def extract_huggingface_repo_id(self, url: str) -> str:
+        parts = url.split('huggingface.co/')
+        if len(parts) > 1:
+            return parts[1].strip('/')
+        return ""
+
+    def list_huggingface_repo_files(self, repo_id: str) -> List[str]:
+        api = HfApi()
+        files = api.list_repo_files(repo_id)
+        return files
+
+    def select_huggingface_files(self, files: List[str]) -> List[str]:
+        print("Available files in the repository:")
+        for file in files:
+            print(f"{file}")
+        
+        selected_files = []
+        while True:
+            file_path = input("Enter the path of a file you want to download (or press Enter to finish): ").strip()
+            if not file_path:
+                break
+            if file_path in files:
+                selected_files.append(file_path)
+                print(f"Added: {file_path}")
+            else:
+                print(f"File not found: {file_path}")
+        
+        return selected_files
+
+    def download_huggingface_files(self, repo_id: str, files: List[str], output_dir: str) -> List[str]:
+        downloaded_files = []
+        for file in files:
+            try:
+                local_file = hf_hub_download(repo_id=repo_id, filename=file, local_dir=output_dir)
+                downloaded_files.append(local_file)
+                print(f"Downloaded: {local_file}")
+            except Exception as e:
+                print(f"Error downloading {file}: {str(e)}")
+        return downloaded_files
+
+    def process_huggingface_repo(self, url: str, output_dir: str) -> List[str]:
+        repo_id = self.extract_huggingface_repo_id(url)
+        if not repo_id:
+            print("Invalid Hugging Face repository URL")
+            return []
+
+        files = self.list_huggingface_repo_files(repo_id)
+        selected_files = self.select_huggingface_files(files)
+        return self.download_huggingface_files(repo_id, selected_files, output_dir)
+    
+    def load_hf_dataset(self, dataset_name):
+        try:
+            dataset = load_dataset(dataset_name)
+            documents = {}
+            for split in dataset.keys():
+                documents[f'default_{split}'] = [item for item in dataset[split]]
+            return documents
+        except ValueError as e:
+            if "Config name is missing" in str(e):
+                configs = str(e).split("among the available configs: ")[1].split("]")[0].replace("[", "").replace("'", "").split(", ")
+                
+                documents = {}
+                for config in configs:
+                    try:
+                        dataset = load_dataset(dataset_name, config)
+                        for split in dataset.keys():
+                            documents[f'{config}_{split}'] = [item for item in dataset[split]]
+                    except Exception as config_error:
+                        print(f"Error loading config '{config}': {str(config_error)}")
+                
+                if documents:
+                    return documents
+            raise
+        except Exception as e:
+            print(f"Error loading dataset: {str(e)}")
+            return {}
+    
+    def is_huggingface_url(self, url):
+        return 'huggingface.co/' in url.lower() and 'datasets/' not in url.lower()
+
+    def is_huggingface_dataset_url(self, url):
+        return 'huggingface.co/datasets/' in url.lower()
+
+    def extract_huggingface_dataset_name(self, url):
+        # Find the index of 'datasets/' in the URL
+        dataset_index = url.lower().find('huggingface.co/datasets/')
+        if dataset_index != -1:
+            # Return everything after 'datasets/'
+            dataset_name = url[dataset_index + len('huggingface.co/datasets/'):].rstrip('/')
+        return dataset_name
+
+    def serialize_dataset_item(self, item):
+        """
+        Serialize a dataset item into a string representation.
+        """
+        return json.dumps(item, ensure_ascii=False, indent=2)
+
+    def ingest_document(self, file_path_or_url: str, output_dir: str = "./output") -> str:
+        """
+        Ingests a single document or web page, extracting text based on its format and saves it as a txt file.
+
+        Args:
+            file_path_or_url (str): Path to the document file or URL.
+            output_dir (str): Directory to save the output txt file.
+
+        Returns:
+            str: Path to the saved txt file.
+        """
+        # Check if it's a URL
+        url_flag = self.is_url(file_path_or_url)
+        
+        # If it's not a URL, check if it could be a URL without the protocol
+        if not url_flag and '/' in file_path_or_url and not os.path.exists(file_path_or_url):
+            file_path_or_url = 'http://' + file_path_or_url
+            url_flag = True
+
+        wikipedia_flag = False
+        arxiv_flag = False
+        huggingface_dataset_flag = False
+        huggingface_repo_flag = False
+        github_flag = False
+        if url_flag:
+            wikipedia_flag = self.is_wikipedia_url(file_path_or_url)
+            arxiv_flag = self.is_arxiv_url(file_path_or_url)
+            huggingface_dataset_flag = self.is_huggingface_dataset_url(file_path_or_url)
+            huggingface_repo_flag = self.is_huggingface_url(file_path_or_url) and not huggingface_dataset_flag
+            github_flag = self.is_github_url(file_path_or_url)
+            if wikipedia_flag:
+                file_name = self.extract_wikipedia_title(file_path_or_url)
+            elif arxiv_flag:
+                arxiv_id = self.extract_arxiv_id(file_path_or_url)
+                file_name = f"arxiv_{arxiv_id}"
+                documents = self.load_arxiv(arxiv_id, load_max_docs=1)
+                latex_source_result = self._download_latex_source(arxiv_id, output_dir)
+            elif huggingface_dataset_flag :
+                file_name = self.extract_huggingface_dataset_name(file_path_or_url).replace('/', '_')
+            elif github_flag:
+                repo_name, branch_name = self.extract_github_repo_info(file_path_or_url)
+                file_name = f"{repo_name.replace('/', '_')}_{branch_name}"
+            else:
+                file_name = urllib.parse.urlparse(file_path_or_url).path.split('/')[-1]
+            if not file_name:
+                file_name = "webpage"
+            output_file_name = f"{file_name}_extracted.txt"
+        else:
+            file_name = os.path.basename(file_path_or_url)
+            output_file_name = f"{os.path.splitext(file_name)[0]}_extracted.txt"
+        
+        # Create the output directory if it doesn't exist
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        else:
+            output_dir = os.getcwd()  # Use current working directory if no output_dir is specified
+        
+        output_path = os.path.join(output_dir, output_file_name)
+        
+        try:
+            if wikipedia_flag:
+                documents = self.load_wikipedia(file_name)
+            elif arxiv_flag:
+                # We've already loaded the documents for arXiv, so we don't need to do it again
+                pass
+            elif huggingface_repo_flag:
+                downloaded_files = self.process_huggingface_repo(file_path_or_url, output_dir)
+                if downloaded_files:
+                    print(f"Downloaded files from Hugging Face repository: {', '.join(downloaded_files)}")
+                    return output_dir  # Return the directory containing all downloaded files
+                else:
+                    print("No files were downloaded from the Hugging Face repository.")
+                    return ""
+            elif huggingface_dataset_flag :
+                dataset_name = self.extract_huggingface_dataset_name(file_path_or_url)
+                documents = self.load_hf_dataset(dataset_name)
+                # Handle multiple configs and splits
+                for config_split, data in documents.items():
+                    config_split_output_file_name = f"{file_name}_{config_split}_extracted.txt"
+                    config_split_output_path = os.path.join(output_dir, config_split_output_file_name)
+                    content = "\n\n".join([self.serialize_dataset_item(doc) for doc in data])
+                    with open(config_split_output_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    print(f"Extracted content for '{config_split}' saved to: {config_split_output_path}")
+                return output_dir  # Return the directory containing all config files
+            elif github_flag:
+                repo_name, branch_name = self.extract_github_repo_info(file_path_or_url)
+                all_files = self.load_github(repo_name, branch_name)
+                selected_files = self.select_github_files(all_files)
+                
+                documents = []
+                for file in selected_files:
+                    file_content = requests.get(file['download_url']).text
+                    documents.append({"page_content": file_content, "metadata": {"source": file['path']}})
+                
+                # Create a directory for GitHub files
+                github_output_dir = os.path.join(output_dir, f"{repo_name.replace('/', '_')}_{branch_name}")
+                os.makedirs(github_output_dir, exist_ok=True)
+                
+                for doc in documents:
+                    file_path = os.path.join(github_output_dir, doc['metadata']['source'])
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(doc['page_content'])
+                    print(f"Saved: {file_path}")
+                
+                return github_output_dir
+            elif url_flag:
+                documents = self.load_web_page(file_path_or_url)
+            else:
+                file_extension = os.path.splitext(file_path_or_url)[1].lower()
+                if file_extension == '.pdf':
+                    documents = self.load_pdf(file_path_or_url)
+                elif file_extension in ['.doc', '.docx']:
+                    documents = self.load_docx(file_path_or_url)
+                elif file_extension == '.csv':
+                    documents = self.load_csv(file_path_or_url)
+                elif file_extension == '.json':
+                    documents = self.load_json(file_path_or_url)
+                elif file_extension == '.txt':
+                    documents = self.load_text(file_path_or_url)
+                elif file_extension == '.epub':
+                    documents = self.load_epub(file_path_or_url)
+                elif file_extension in ['.ppt', '.pptx']:
+                    documents = self.load_ppt(file_path_or_url)
+                else:
+                    # If it's not a recognized file type, assume it's a Wikipedia query
+                    documents = self.load_wikipedia(file_path_or_url)
+            
+            # Handle non-Hugging Face and non-GitHub cases
+            if not huggingface_dataset_flag  and not github_flag:
+                content = "\n\n".join([doc.page_content if hasattr(doc, 'page_content') else str(doc) for doc in documents])
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                print(f"Extracted content saved to: {output_path}")
+                return output_path
+
+        except Exception as e:
+            print(f"Error processing {file_path_or_url}: {str(e)}")
+            return ""
+# example usage
+# loader = DocumentLoader()
+# file_path =r"https://huggingface.co/datasets/SkunkworksAI/reasoning-0.01"
+# ingested_documents = loader.ingest_document(file_path)
