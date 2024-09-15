@@ -259,7 +259,7 @@ def quantize_safetensor(input_path, output_path, bits=8):
         from safetensors.torch import save_file
 
         # Load the model
-        with safe_open(input_path, framework="pt", device="gpu") as f:
+        with safe_open(input_path, framework="pt", device="cpu") as f:
             model_data = {key: f.get_tensor(key) for key in f.keys()}
 
         # Quantize the tensors
