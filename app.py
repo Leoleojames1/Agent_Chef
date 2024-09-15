@@ -845,6 +845,47 @@ def get_adapter_files():
         logging.exception("Error fetching adapter files")
         return jsonify({"error": str(e), "message": "Error fetching adapter files"}), 500
     
+@app.route('/api/convert_to_gguf', methods=['POST'])
+def convert_to_gguf():
+    data = request.json
+    print(f"{Fore.CYAN}Received GGUF conversion data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    input_path = data.get('inputPath')
+    output_name = data.get('outputName')
+    outtype = data.get('outtype', 'f16')
+
+    try:
+        if not input_path:
+            raise ValueError("Input model path must be specified")
+
+        input_path = os.path.join(huggingface_dir, input_path)
+        if not os.path.exists(input_path):
+            input_path = os.path.join(oven_dir, input_path)
+        
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input model not found: {input_path}")
+
+        print(f"{Fore.GREEN}Initializing GGUF conversion{Style.RESET_ALL}")
+        
+        unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
+        
+        print(f"{Fore.GREEN}Starting GGUF conversion{Style.RESET_ALL}")
+        result = unsloth_trainer.convert_to_gguf(input_path, output_name, outtype)
+
+        if result['success']:
+            return jsonify({
+                'message': 'GGUF conversion completed successfully',
+                'output_file': result['output_file']
+            })
+        else:
+            return jsonify({'error': result['error'], 'details': result['details']}), 400
+
+    except Exception as e:
+        error_msg = f"Error in GGUF conversion: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
 @app.route('/api/merge_adapter', methods=['POST'])
 def merge_adapter():
     data = request.json

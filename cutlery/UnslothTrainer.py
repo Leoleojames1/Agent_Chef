@@ -154,7 +154,7 @@ class UnslothTrainer:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
     
-    def convert_to_gguf(self, input_path, model_name):
+    def convert_to_gguf(self, input_path, output_name=None, outtype="f16"):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
         llama_cpp_dir = os.path.expanduser("~/llama.cpp")
         convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
@@ -165,12 +165,16 @@ class UnslothTrainer:
         
         gguf_dir = os.path.join(self.output_dir, "gguf_models")
         os.makedirs(gguf_dir, exist_ok=True)
-        output_file = os.path.join(gguf_dir, f"{model_name}.gguf")
+        
+        if output_name is None:
+            output_name = os.path.basename(input_path)
+        
+        output_file = os.path.join(gguf_dir, f"{output_name}.gguf")
 
         command = [
             "python",
             convert_script,
-            "--outtype", "f16",  # Use f16 to avoid quantization
+            "--outtype", outtype,
             "--outfile", output_file,
             input_path
         ]
@@ -181,12 +185,12 @@ class UnslothTrainer:
             result = subprocess.run(command, check=True, capture_output=True, text=True)
             self.logger.info(f"Conversion to GGUF completed. Output saved in {output_file}")
             self.logger.info(f"Conversion output: {result.stdout}")
-            return True
+            return {"success": True, "message": f"GGUF conversion completed successfully", "output_file": output_file}
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during GGUF conversion: {e}")
             self.logger.error(f"Command output: {e.stdout}")
             self.logger.error(f"Command error: {e.stderr}")
-            return False
+            return {"success": False, "error": str(e), "details": e.stderr}
         
     def cleanup_merged_models(self, keep_latest=5):
         merged_dir = os.path.join(self.output_dir, "merged_models")

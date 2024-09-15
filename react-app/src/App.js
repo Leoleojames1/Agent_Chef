@@ -196,6 +196,9 @@ function App() {
   const [unslothMode, setUnslothMode] = useState('train');
   const [adapterFiles, setAdapterFiles] = useState([]);
   const [dequantizeOption, setDequantizeOption] = useState('no');
+  const [ggufInputModel, setGgufInputModel] = useState('');
+  const [ggufOutputName, setGgufOutputName] = useState('');
+  const [ggufOuttype, setGgufOuttype] = useState('f16');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -954,6 +957,38 @@ useEffect(() => {
     }
   };
   
+  const runGgufConversion = async () => {
+    try {
+      setError(null);
+      setOutput("Processing GGUF conversion...");
+      
+      if (!ggufInputModel) {
+        throw new Error("Please select a model to convert to GGUF.");
+      }
+      
+      const dataToSend = {
+        inputPath: ggufInputModel,
+        outputName: ggufOutputName,
+        outtype: ggufOuttype
+      };
+  
+      console.log("Sending data for GGUF conversion:", JSON.stringify(dataToSend, null, 2));
+  
+      const response = await axios.post('http://localhost:5000/api/convert_to_gguf', dataToSend);
+    
+      if (response.data.error) {
+        setError(response.data.error);
+        setOutput('');
+      } else {
+        setOutput(JSON.stringify(response.data, null, 2));
+        fetchFiles();
+      }
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+      setOutput('');
+    }
+  };
+
   const runUnslothTraining = async () => {
     try {
       setError(null);
@@ -1248,6 +1283,7 @@ useEffect(() => {
                         >
                           <MenuItem value="train">Train</MenuItem>
                           <MenuItem value="merge">Merge</MenuItem>
+                          <MenuItem value="merge">gguf_convert</MenuItem>
                         </Select>
                       </FormControl>
 
@@ -1401,6 +1437,49 @@ useEffect(() => {
                           </FormControl>
                         </>
                       )}
+
+                      {unslothMode === 'gguf_convert' && (
+                          <>
+                            <Typography variant="h6" gutterBottom>GGUF Conversion</Typography>
+                            <Select
+                              fullWidth
+                              value={ggufInputModel}
+                              onChange={(e) => setGgufInputModel(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Input Model</MenuItem>
+                              {[...huggingfaceFolders, ...allFiles.filter(file => file.type === 'oven').map(file => file.name)].map((model) => (
+                                <MenuItem key={model} value={model}>{model}</MenuItem>
+                              ))}
+                            </Select>
+                            <TextField
+                              fullWidth
+                              label="Output Model Name"
+                              value={ggufOutputName}
+                              onChange={(e) => setGgufOutputName(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                            <Select
+                              fullWidth
+                              value={ggufOuttype}
+                              onChange={(e) => setGgufOuttype(e.target.value)}
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="f16">Float16</MenuItem>
+                              <MenuItem value="f32">Float32</MenuItem>
+                            </Select>
+                            <Button 
+                              fullWidth
+                              variant="contained" 
+                              onClick={runGgufConversion}
+                              disabled={!ggufInputModel}
+                              sx={{ mb: 2 }}
+                            >
+                              Convert to GGUF
+                            </Button>
+                          </>
+                        )}
 
                       <Button 
                         fullWidth
