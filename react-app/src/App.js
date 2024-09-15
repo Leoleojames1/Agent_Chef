@@ -1594,48 +1594,49 @@ useEffect(() => {
                       )}
 
                       {unslothMode === 'dequantize' && (
-                          <>
-                            <Typography variant="h6" gutterBottom>Dequantize Model</Typography>
-                            <Select
-                              fullWidth
-                              value={dequantizeInputModel}
-                              onChange={(e) => setDequantizeInputModel(e.target.value)}
-                              displayEmpty
-                              sx={{ mb: 2 }}
-                            >
-                              <MenuItem value="">Select Input Model</MenuItem>
-                              <ListSubheader>Oven Models</ListSubheader>
-                              {ovenModels.map((model) => (
-                                <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
-                              ))}
-                            </Select>
-                            <TextField
-                              fullWidth
-                              label="Output Model Name"
-                              value={dequantizeOutputName}
-                              onChange={(e) => setDequantizeOutputName(e.target.value)}
-                              sx={{ mb: 2 }}
-                            />
-                            <Select
-                              fullWidth
-                              value={dequantizePrecision}
-                              onChange={(e) => setDequantizePrecision(e.target.value)}
-                              sx={{ mb: 2 }}
-                            >
-                              <MenuItem value="f16">Float16</MenuItem>
-                              <MenuItem value="f32">Float32</MenuItem>
-                            </Select>
-                            <Button 
-                              fullWidth
-                              variant="contained" 
-                              onClick={runDequantization}
-                              disabled={!dequantizeInputModel}
-                              sx={{ mb: 2 }}
-                            >
-                              Dequantize Model
-                            </Button>
-                          </>
-                        )}
+                        <>
+                          <Typography variant="h6" gutterBottom>Dequantize Model</Typography>
+                          <Select
+                            fullWidth
+                            value={dequantizeInputModel}
+                            onChange={(e) => setDequantizeInputModel(e.target.value)}
+                            displayEmpty
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="">Select Input Model</MenuItem>
+                            <ListSubheader>Oven Models</ListSubheader>
+                            {ovenModels.map((model) => (
+                              <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
+                            ))}
+                          </Select>
+                          <TextField
+                            fullWidth
+                            label="Output Model Name"
+                            value={dequantizeOutputName}
+                            onChange={(e) => setDequantizeOutputName(e.target.value)}
+                            sx={{ mb: 2 }}
+                          />
+                          <Select
+                            fullWidth
+                            value={dequantizePrecision}
+                            onChange={(e) => setDequantizePrecision(e.target.value)}
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="f16">Float16</MenuItem>
+                            <MenuItem value="f32">Float32</MenuItem>
+                            <MenuItem value="8bit">8-bit</MenuItem>
+                          </Select>
+                          <Button 
+                            fullWidth
+                            variant="contained" 
+                            onClick={runDequantization}
+                            disabled={!dequantizeInputModel}
+                            sx={{ mb: 2 }}
+                          >
+                            Dequantize Model
+                          </Button>
+                        </>
+                      )}
 
                         {unslothMode === 'quantize' && (
                               <>

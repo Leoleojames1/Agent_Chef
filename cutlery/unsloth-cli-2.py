@@ -278,6 +278,13 @@ def run_dequantize(args):
         logger.error(f"Error during dequantization: {str(e)}")
         return False
     
+def dequantize_4bit_to_8bit(model):
+    for name, param in model.named_parameters():
+        if param.dtype == torch.int8:  # Assuming 4-bit weights are stored as int8
+            # Convert 4-bit to 8-bit
+            param.data = (param.data.float() / 16 * 255).round().clamp(0, 255).byte()
+    return model
+
 def dequantize_model(input_path, output_path, precision):
     logger.info(f"Dequantizing model from {input_path} to {output_path}")
     
@@ -287,8 +294,11 @@ def dequantize_model(input_path, output_path, precision):
         model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
         tokenizer = AutoTokenizer.from_pretrained(input_path)
 
-        target_dtype = torch.float16 if precision == 'f16' else torch.float32
-        model = dequantize_weights(model, target_dtype)
+        if precision == '8bit':
+            model = dequantize_4bit_to_8bit(model)
+        else:
+            target_dtype = torch.float16 if precision == 'f16' else torch.float32
+            model = dequantize_weights(model, target_dtype)
 
         model.save_pretrained(output_path)
         tokenizer.save_pretrained(output_path)
@@ -531,8 +541,8 @@ if __name__ == "__main__":
     dequantize_parser = subparsers.add_parser("dequantize", help="Dequantize a model")
     dequantize_parser.add_argument('--input_path', type=str, required=True, help="Path to the input model")
     dequantize_parser.add_argument('--output_path', type=str, required=True, help="Path to save the dequantized model")
-    dequantize_parser.add_argument('--precision', choices=['f16', 'f32'], default='f32', help="Precision for dequantization")
-
+    dequantize_parser.add_argument('--precision', choices=['f16', 'f32', '8bit'], default='f16', help="Precision for dequantization")
+    
     args = parser.parse_args()
 
     if args.command == "train":
