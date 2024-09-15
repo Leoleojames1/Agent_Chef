@@ -48,13 +48,13 @@ class UnslothTrainer:
 
     def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_name="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
-        output_dir = os.path.join(self.output_dir, output_name)
+        adapters_dir = os.path.join(self.adapters_dir, f"{output_name}")
         
         cli_args = [
             "python", self.unsloth_script_path, "train",
             "--model_name", model_name,
             "--train_dataset", train_dataset,
-            "--output_dir", output_dir,
+            "--output_dir", adapters_dir,
         ]
 
         if validation_dataset:
