@@ -1450,16 +1450,16 @@ useEffect(() => {
                             sx={{ mb: 2 }}
                           >
                             <MenuItem value="">Select Input Model</MenuItem>
-                            <ListSubheader>Hugging Face Models</ListSubheader>
-                            {huggingfaceFolders.map((model) => (
-                              <MenuItem key={`hf-${model}`} value={model}>{model}</MenuItem>
+                            {[
+                              ...huggingfaceFolders.map(model => ({ name: model, type: 'hf' })),
+                              ...allFiles
+                                .filter(file => file.type === 'oven' && file.name.includes('checkpoint-'))
+                                .map(file => ({ name: file.name, type: 'oven' }))
+                            ].map((model) => (
+                              <MenuItem key={`${model.type}-${model.name}`} value={model.name}>
+                                {model.type === 'hf' ? 'HF: ' : 'Oven: '}{model.name}
+                              </MenuItem>
                             ))}
-                            <ListSubheader>Oven Models</ListSubheader>
-                            {allFiles
-                              .filter(file => file.type === 'oven' && file.name.includes('checkpoint-'))
-                              .map((file) => (
-                                <MenuItem key={`oven-${file.name}`} value={file.name}>{file.name}</MenuItem>
-                              ))}
                           </Select>
                           <TextField
                             fullWidth
