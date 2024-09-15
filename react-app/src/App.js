@@ -1056,7 +1056,6 @@ useEffect(() => {
     }
   };
 
-  // Add this new function to handle GGUF quantization
   const runGgufQuantization = async () => {
     try {
       setError(null);
@@ -1069,11 +1068,11 @@ useEffect(() => {
       const dataToSend = {
         inputPath: ggufQuantizeInputModel,
         outputName: ggufQuantizeOutputName || ggufQuantizeInputModel,
-        quantizationType: ggufQuantizeType
+        bits: parseInt(ggufQuantizeType.substring(1))  // Convert 'q4_0' to 4, 'q8_0' to 8, etc.
       };
-
+  
       console.log("Sending data for GGUF quantization:", JSON.stringify(dataToSend, null, 2));
-
+  
       const response = await axios.post('http://localhost:5000/api/quantize_gguf', dataToSend);
     
       if (response.data.error) {

@@ -86,15 +86,15 @@ import argparse
 import logging
 import os
 import torch
+import json
+import struct
 from unsloth import FastLanguageModel
+from unsloth import is_bfloat16_supported
 from datasets import load_dataset, DatasetDict
+from peft import PeftModel
 from trl import SFTTrainer
 from transformers import TrainingArguments, AutoModelForCausalLM, AutoTokenizer
-from unsloth import is_bfloat16_supported
-import json
 from safetensors import safe_open
-import struct
-from peft import PeftModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -238,6 +238,116 @@ def merge_adapter(base_model_path, adapter_path, output_path, dequantize='no'):
         error_msg = f"Error merging adapter: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
+    
+def quantize_safetensor(input_path, output_path, bits=8):
+    """
+    Quantize a safetensor model to a lower bit precision.
+    
+    Args:
+        input_path: Path to the input safetensor model
+        output_path: Path to save the quantized model
+        bits: Target bit precision (default: 8)
+    
+    Returns:
+        True if quantization was successful, False otherwise
+    """
+    logger.info(f"Quantizing model from {input_path} to {bits}-bit precision")
+    
+    try:
+        import torch
+        from safetensors import safe_open
+        from safetensors.torch import save_file
+
+        # Load the model
+        with safe_open(input_path, framework="pt", device="cpu") as f:
+            model_data = {key: f.get_tensor(key) for key in f.keys()}
+
+        # Quantize the tensors
+        quantized_data = {}
+        for key, tensor in model_data.items():
+            if tensor.dtype in [torch.float32, torch.float16]:
+                if bits == 8:
+                    quantized_tensor = tensor.to(torch.int8)
+                elif bits == 4:
+                    # For 4-bit quantization, we need to implement a custom method
+                    # This is a simplified 4-bit quantization, you might want to use a more sophisticated method
+                    float_tensor = tensor.float()
+                    max_val = float_tensor.abs().max()
+                    scale = max_val / 7.5
+                    quantized_tensor = (float_tensor / scale).round().clamp(-8, 7).to(torch.int8)
+                    quantized_data[f"{key}_scale"] = torch.tensor([scale])
+                else:
+                    raise ValueError(f"Unsupported bit precision: {bits}")
+                
+                quantized_data[key] = quantized_tensor
+            else:
+                quantized_data[key] = tensor
+
+        # Save the quantized model
+        save_file(quantized_data, output_path)
+        logger.info(f"Quantized model saved to {output_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error during model quantization: {e}")
+        return False
+    
+def dequantize_4bit_to_8bit(model):
+    for name, param in model.named_parameters():
+        if param.dtype == torch.int8:  # Assuming 4-bit weights are stored as int8
+            # Convert 4-bit to 8-bit
+            param.data = (param.data.float() / 16 * 255).round().clamp(0, 255).byte()
+    return model
+
+def dequantize_model(input_path, output_path, precision):
+    logger.info(f"Dequantizing model from {input_path} to {output_path}")
+    
+    try:
+        import torch
+
+        model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
+        tokenizer = AutoTokenizer.from_pretrained(input_path)
+
+        if precision == '8bit':
+            model = dequantize_4bit_to_8bit(model)
+        else:
+            target_dtype = torch.float16 if precision == 'f16' else torch.float32
+            model = dequantize_weights(model, target_dtype)
+
+        model.save_pretrained(output_path)
+        tokenizer.save_pretrained(output_path)
+
+        logger.info(f"Model dequantized and saved to {output_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error during model dequantization: {e}")
+        return False
+
+def dequantize_weights(model, target_dtype=torch.float32):
+    """
+    Dequantize the weights of a quantized model to a target data type.
+    This is useful when merging models or performing operations that require full precision.
+    
+    Args:
+        model: The quantized model to dequantize
+        target_dtype: The target data type (default: torch.float32)
+    
+    Returns:
+        The dequantized model
+    """
+    def dequantize_layer(layer):
+        for name, param in layer.named_parameters():
+            if hasattr(param, 'quant_state'):
+                # Dequantize quantized parameters
+                param.data = param.data.dequantize().to(target_dtype)
+                delattr(param, 'quant_state')
+            elif param.dtype != target_dtype:
+                # Convert non-quantized parameters to the target dtype
+                param.data = param.data.to(target_dtype)
+
+    for module in model.modules():
+        dequantize_layer(module)
+
+    return model
 
 def run_merge(args):
     """
@@ -278,65 +388,38 @@ def run_dequantize(args):
         logger.error(f"Error during dequantization: {str(e)}")
         return False
     
-def dequantize_4bit_to_8bit(model):
-    for name, param in model.named_parameters():
-        if param.dtype == torch.int8:  # Assuming 4-bit weights are stored as int8
-            # Convert 4-bit to 8-bit
-            param.data = (param.data.float() / 16 * 255).round().clamp(0, 255).byte()
-    return model
-
-def dequantize_model(input_path, output_path, precision):
-    logger.info(f"Dequantizing model from {input_path} to {output_path}")
-    
-    try:
-        import torch
-
-        model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(input_path)
-
-        if precision == '8bit':
-            model = dequantize_4bit_to_8bit(model)
-        else:
-            target_dtype = torch.float16 if precision == 'f16' else torch.float32
-            model = dequantize_weights(model, target_dtype)
-
-        model.save_pretrained(output_path)
-        tokenizer.save_pretrained(output_path)
-
-        logger.info(f"Model dequantized and saved to {output_path}")
-        return True
-    except Exception as e:
-        logger.error(f"Error during model dequantization: {e}")
-        return False
-    
-def dequantize_weights(model, target_dtype=torch.float32):
+def run_quantize(args):
     """
-    Dequantize the weights of a quantized model to a target data type.
-    This is useful when merging models or performing operations that require full precision.
+    Execute the quantize operation based on command-line arguments.
     
     Args:
-        model: The quantized model to dequantize
-        target_dtype: The target data type (default: torch.float32)
+        args: Command-line arguments
     
     Returns:
-        The dequantized model
+        True if quantization was successful, False otherwise
     """
-    def dequantize_layer(layer):
-        for name, param in layer.named_parameters():
-            if hasattr(param, 'quant_state'):
-                # Dequantize quantized parameters
-                param.data = param.data.dequantize().to(target_dtype)
-                delattr(param, 'quant_state')
-            elif param.dtype != target_dtype:
-                # Convert non-quantized parameters to the target dtype
-                param.data = param.data.to(target_dtype)
-
-    for module in model.modules():
-        dequantize_layer(module)
-
-    return model
-
-def run(args):
+    try:
+        logger.info(f"Quantizing model from {args.input_path} to {args.output_path}")
+        success = quantize_safetensor(args.input_path, args.output_path, args.bits)
+        if success:
+            logger.info("Quantization completed successfully")
+        else:
+            logger.error("Quantization failed")
+        return success
+    except Exception as e:
+        logger.error(f"Error during quantization: {str(e)}")
+        return False
+    
+def run_train(args):
+    """
+    Execute the train operation based on command-line arguments.
+    
+    Args:
+        args: Command-line arguments
+    
+    Returns:
+        True if quantization was successful, False otherwise
+    """
     model, tokenizer = load_model_and_tokenizer(args)
 
     model = FastLanguageModel.get_peft_model(
@@ -491,6 +574,7 @@ if __name__ == "__main__":
     model_group.add_argument('--test_dataset', type=str, help="Path to the test parquet dataset file")
     model_group.add_argument('--dequantize', action='store_true', help="Dequantize model weights after loading")
 
+    # LoRA group
     lora_group = train_parser.add_argument_group("🧠 LoRA Options")
     lora_group.add_argument('--r', type=int, default=16, help="Rank for LoRA model")
     lora_group.add_argument('--lora_alpha', type=int, default=16, help="LoRA alpha parameter")
@@ -500,7 +584,8 @@ if __name__ == "__main__":
     lora_group.add_argument('--random_state', type=int, default=3407, help="Random state for reproducibility")
     lora_group.add_argument('--use_rslora', action='store_true', help="Use rank stabilized LoRA")
     lora_group.add_argument('--loftq_config', type=str, default=None, help="Configuration for LoftQ")
-
+    
+    # Training options group
     training_group = train_parser.add_argument_group("🎓 Training Options")
     training_group.add_argument('--per_device_train_batch_size', type=int, default=2, help="Batch size per device during training")
     training_group.add_argument('--gradient_accumulation_steps', type=int, default=4, help="Number of gradient accumulation steps")
@@ -512,10 +597,12 @@ if __name__ == "__main__":
     training_group.add_argument('--lr_scheduler_type', type=str, default="linear", help="Learning rate scheduler type")
     training_group.add_argument('--seed', type=int, default=3407, help="Seed for reproducibility")
 
+    # Report group
     report_group = train_parser.add_argument_group("📊 Report Options")
     report_group.add_argument('--report_to', type=str, default="tensorboard", choices=["azure_ml", "clearml", "codecarbon", "comet_ml", "dagshub", "dvclive", "flyte", "mlflow", "neptune", "tensorboard", "wandb", "all", "none"], help="The list of integrations to report the results and logs to")
     report_group.add_argument('--logging_steps', type=int, default=1, help="Logging steps")
 
+    # Save group
     save_group = train_parser.add_argument_group('💾 Save Model Options')
     save_group.add_argument('--output_dir', type=str, default="outputs", help="Output directory")
     save_group.add_argument('--save_model', action='store_true', help="Save the model after training")
@@ -524,6 +611,7 @@ if __name__ == "__main__":
     save_group.add_argument('--save_path', type=str, default="model", help="Path to save the model")
     save_group.add_argument('--quantization', type=str, default="q8_0", nargs="+", help="Quantization method for saving the model")
 
+    # Push group
     push_group = train_parser.add_argument_group('🚀 Push Model Options')
     push_group.add_argument('--push_model', action='store_true', help="Push the model to Hugging Face hub after training")
     push_group.add_argument('--push_gguf', action='store_true', help="Push the model as GGUF to Hugging Face hub after training")
@@ -543,6 +631,12 @@ if __name__ == "__main__":
     dequantize_parser.add_argument('--output_path', type=str, required=True, help="Path to save the dequantized model")
     dequantize_parser.add_argument('--precision', choices=['f16', 'f32', '8bit'], default='f16', help="Precision for dequantization")
     
+    # Quantizing parser
+    quantize_parser = subparsers.add_parser("quantize", help="Quantize a safetensor model")
+    quantize_parser.add_argument('--input_path', type=str, required=True, help="Path to the input safetensor model")
+    quantize_parser.add_argument('--output_path', type=str, required=True, help="Path to save the quantized model")
+    quantize_parser.add_argument('--bits', type=int, choices=[4, 8], default=8, help="Target bit precision for quantization")
+
     args = parser.parse_args()
 
     if args.command == "train":
@@ -550,7 +644,7 @@ if __name__ == "__main__":
             logger.error("Cannot use both 4-bit and 16-bit options simultaneously. Please choose one.")
             exit(1)
         try:
-            run(args)
+            run_train(args)
         except Exception as e:
             logger.error(f"An error occurred during execution: {e}")
         logger.info("Attempting to provide more information about the model...")
@@ -576,11 +670,15 @@ if __name__ == "__main__":
             logger.error(result["error"])
         else:
             logger.info(result["message"])
-            
     elif args.command == "dequantize":
         success = run_dequantize(args)
         if not success:
             logger.error("Dequantization failed")
+            exit(1)
+    elif args.command == "quantize":
+        success = run_quantize(args)
+        if not success:
+            logger.error("Quantization failed")
             exit(1)
     else:
         parser.print_help()

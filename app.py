@@ -1009,11 +1009,11 @@ def quantize_gguf():
     
     input_path = data.get('inputPath')
     output_name = data.get('outputName')
-    quantization_type = data.get('quantizationType')
+    bits = data.get('bits', 8)  # Default to 8-bit if not specified
 
     try:
-        if not input_path or not output_name or not quantization_type:
-            raise ValueError("Input path, output name, and quantization type must be specified")
+        if not input_path or not output_name:
+            raise ValueError("Input path and output name must be specified")
 
         gguf_dir = os.path.join(oven_dir, "gguf_models")
         input_file = os.path.join(gguf_dir, input_path)
@@ -1022,14 +1022,14 @@ def quantize_gguf():
         if not os.path.exists(input_file):
             raise FileNotFoundError(f"Input GGUF file not found: {input_file}")
 
-        # Path to the quantize script in llama.cpp
-        quantize_script = os.path.join(os.path.expanduser("~/llama.cpp"), "quantize")
+        # Path to the unsloth-cli-2.py script
+        unsloth_script = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
 
         command = [
-            quantize_script,
-            input_file,
-            output_file,
-            quantization_type
+            "python", unsloth_script, "quantize",
+            "--input_path", input_file,
+            "--output_path", output_file,
+            "--bits", str(bits)
         ]
 
         print(f"{Fore.GREEN}Running command: {' '.join(command)}{Style.RESET_ALL}")
