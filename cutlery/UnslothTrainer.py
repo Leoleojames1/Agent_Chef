@@ -34,11 +34,12 @@ class UnslothTrainer:
         model_dir = os.path.join(self.oven_dir, model_name)
         if not os.path.exists(model_dir):
             return None
+        # Check for the '900' directory or the highest numbered directory
         numeric_dirs = [d for d in os.listdir(model_dir) if d.isdigit()]
-        if not numeric_dirs:
-            return None
-        latest_dir = max(numeric_dirs, key=int)
-        return os.path.join(model_dir, latest_dir)
+        if numeric_dirs:
+            latest_dir = max(numeric_dirs, key=int)
+            return os.path.join(model_dir, latest_dir)
+        return None
     
     def _find_unsloth_script(self):
         script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
@@ -166,7 +167,7 @@ class UnslothTrainer:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
     
-    def convert_to_gguf(self, input_path, output_name):
+    def convert_to_gguf(self, input_path, output_name, outtype='f16'):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
         convert_script = os.path.join(self.llama_cpp_dir, "convert_hf_to_gguf.py")
         
@@ -178,7 +179,7 @@ class UnslothTrainer:
 
         command = [
             "python", convert_script,
-            "--outtype", "f16",
+            "--outtype", outtype,
             "--outfile", output_file,
             input_path
         ]
