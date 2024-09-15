@@ -13,18 +13,12 @@ class UnslothTrainer:
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
-        self.gguf_script_path = self._find_gguf_script()
+        self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
 
     def _find_unsloth_script(self):
         script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"unsloth-cli-2.py not found at {script_path}")
-        return script_path
-
-    def _find_gguf_script(self):
-        script_path = os.path.join(self.cutlery_dir, 'safetensors_to_GGUF.sh')
-        if not os.path.exists(script_path):
-            raise FileNotFoundError(f"safetensors_to_GGUF.sh not found at {script_path}")
         return script_path
 
     def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_dir="unsloth_model", **kwargs):
@@ -135,23 +129,32 @@ class UnslothTrainer:
                 return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output)}
             return {"message": "Merging completed successfully", "output": "\n".join(output)}
 
-    def convert_to_gguf(self, input_dir, model_name):
-        self.logger.info(f"Converting model to GGUF format: {input_dir}")
-        gguf_dir = os.path.join(input_dir, "gguf")
+    def convert_to_gguf(self, input_path, model_name):
+        self.logger.info(f"Converting model to GGUF format: {input_path}")
+        llama_cpp_dir = os.path.expanduser("~/llama.cpp")
+        convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
+        
+        if not os.path.exists(convert_script):
+            self.logger.error(f"Error: convert.py not found at {convert_script}")
+            return
+        
+        gguf_dir = os.path.join(input_path, "gguf")
         os.makedirs(gguf_dir, exist_ok=True)
+        output_file = os.path.join(gguf_dir, f"{model_name}.gguf")
 
         command = [
-            "bash",
-            self.gguf_script_path,
-            gguf_dir,
-            model_name
+            "python",
+            convert_script,
+            "--outtype", "f16",  # Use f16 to avoid quantization
+            "--outfile", output_file,
+            input_path
         ]
 
         self.logger.info(f"Running command: {' '.join(command)}")
 
         try:
-            subprocess.run(command, check=True, cwd=self.base_dir)
-            self.logger.info(f"GGUF conversion completed. Output saved in {gguf_dir}")
+            subprocess.run(command, check=True)
+            self.logger.info(f"Conversion to GGUF completed. Output saved in {output_file}")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during GGUF conversion: {e}")
             self.logger.error(f"Command output: {e.output}")

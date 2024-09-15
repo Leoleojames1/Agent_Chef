@@ -39,6 +39,7 @@ from unsloth import is_bfloat16_supported
 import json
 from safetensors import safe_open
 import struct
+from peft import PeftModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -135,39 +136,27 @@ def merge_adapter(base_model_path, adapter_path, output_path):
     logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
     
     try:
-        # Load the base model and adapter
-        logger.info("Loading base model...")
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=base_model_path,
-            max_seq_length=2048,  # You might want to make this configurable
-            load_in_4bit=True,  # You might want to make this configurable
-        )
-        logger.info("Base model loaded successfully")
+        logger.info(f"Loading base model from: {base_model_path}")
+        base_model = AutoModelForCausalLM.from_pretrained(base_model_path, device_map="auto")
+        tokenizer = AutoTokenizer.from_pretrained(base_model_path)
         
-        # Load the adapter
-        logger.info("Loading adapter...")
-        try:
-            model = FastLanguageModel.get_peft_model(model, adapter_path)
-            logger.info("Adapter loaded successfully")
-        except Exception as adapter_error:
-            logger.error(f"Error loading adapter: {str(adapter_error)}")
-            return {"error": f"Failed to load adapter: {str(adapter_error)}"}
+        logger.info(f"Loading adapter from: {adapter_path}")
+        model = PeftModel.from_pretrained(base_model, adapter_path)
         
-        # Merge and save the model
-        logger.info("Merging and saving the model...")
-        try:
-            model.save_pretrained_merged(output_path, tokenizer, save_method="merged_16bit")
-            logger.info(f"Merged model saved to {output_path}")
-        except Exception as save_error:
-            logger.error(f"Error saving merged model: {str(save_error)}")
-            return {"error": f"Failed to save merged model: {str(save_error)}"}
+        logger.info("Merging adapter with base model")
+        merged_model = model.merge_and_unload()
+        
+        logger.info(f"Saving merged model to: {output_path}")
+        merged_model.save_pretrained(output_path)
+        tokenizer.save_pretrained(output_path)
+        logger.info("Merged model saved successfully")
         
         return {"message": "Adapter merged successfully", "output_path": output_path}
     except Exception as e:
         error_msg = f"Error merging adapter: {str(e)}"
         logger.error(error_msg)
         return {"error": error_msg}
-    
+
 def run_merge(args):
     result = merge_adapter(args.base_model_path, args.adapter_path, args.output_path)
     if "error" in result:
