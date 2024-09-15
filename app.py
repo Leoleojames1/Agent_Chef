@@ -835,7 +835,7 @@ def convert_to_gguf():
             raise ValueError("Input model path must be specified")
 
         # Construct the full path to the input model's "900" directory
-        full_input_path = os.path.join(oven_dir, input_path, "900")
+        full_input_path = os.path.join(oven_dir, input_path)
         if not os.path.exists(full_input_path):
             raise FileNotFoundError(f"Input model '900' directory not found: {full_input_path}")
 
