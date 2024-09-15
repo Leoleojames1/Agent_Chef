@@ -831,19 +831,23 @@ def convert_to_gguf():
         if not input_path:
             raise ValueError("Input model path must be specified")
 
-        input_path = os.path.join(huggingface_dir, input_path)
-        if not os.path.exists(input_path):
-            input_path = os.path.join(oven_dir, input_path)
+        # Check in huggingface_dir first
+        full_input_path = os.path.join(huggingface_dir, input_path)
         
-        if not os.path.exists(input_path):
+        # If not found in huggingface_dir, check in oven_dir
+        if not os.path.exists(full_input_path):
+            full_input_path = os.path.join(oven_dir, input_path)
+        
+        # If still not found, raise an error
+        if not os.path.exists(full_input_path):
             raise FileNotFoundError(f"Input model not found: {input_path}")
 
-        print(f"{Fore.GREEN}Initializing GGUF conversion{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}Initializing GGUF conversion for model: {full_input_path}{Style.RESET_ALL}")
         
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
         print(f"{Fore.GREEN}Starting GGUF conversion{Style.RESET_ALL}")
-        result = unsloth_trainer.convert_to_gguf(input_path, output_name, outtype)
+        result = unsloth_trainer.convert_to_gguf(full_input_path, output_name, outtype)
 
         if result['success']:
             return jsonify({

@@ -1439,47 +1439,54 @@ useEffect(() => {
                       )}
 
                       {unslothMode === 'gguf_convert' && (
-                            <>
-                              <Typography variant="h6" gutterBottom>GGUF Conversion</Typography>
-                              <Select
-                                fullWidth
-                                value={ggufInputModel}
-                                onChange={(e) => setGgufInputModel(e.target.value)}
-                                displayEmpty
-                                sx={{ mb: 2 }}
-                              >
-                                <MenuItem value="">Select Input Model</MenuItem>
-                                {[...huggingfaceFolders, ...allFiles.filter(file => file.type === 'oven').map(file => file.name)].map((model) => (
-                                  <MenuItem key={model} value={model}>{model}</MenuItem>
-                                ))}
-                              </Select>
-                              <TextField
-                                fullWidth
-                                label="Output Model Name"
-                                value={ggufOutputName}
-                                onChange={(e) => setGgufOutputName(e.target.value)}
-                                sx={{ mb: 2 }}
-                              />
-                              <Select
-                                fullWidth
-                                value={ggufOuttype}
-                                onChange={(e) => setGgufOuttype(e.target.value)}
-                                sx={{ mb: 2 }}
-                              >
-                                <MenuItem value="f16">Float16</MenuItem>
-                                <MenuItem value="f32">Float32</MenuItem>
-                              </Select>
-                              <Button 
-                                fullWidth
-                                variant="contained" 
-                                onClick={runGgufConversion}
-                                disabled={!ggufInputModel}
-                                sx={{ mb: 2 }}
-                              >
-                                Convert to GGUF
-                              </Button>
-                            </>
-                          )}
+                        <>
+                          <Typography variant="h6" gutterBottom>GGUF Conversion</Typography>
+                          <Select
+                            fullWidth
+                            value={ggufInputModel}
+                            onChange={(e) => setGgufInputModel(e.target.value)}
+                            displayEmpty
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="">Select Input Model</MenuItem>
+                            <ListSubheader>Hugging Face Models</ListSubheader>
+                            {huggingfaceFolders.map((model) => (
+                              <MenuItem key={`hf-${model}`} value={model}>{model}</MenuItem>
+                            ))}
+                            <ListSubheader>Oven Models</ListSubheader>
+                            {allFiles
+                              .filter(file => file.type === 'oven' && file.name.includes('checkpoint-'))
+                              .map((file) => (
+                                <MenuItem key={`oven-${file.name}`} value={file.name}>{file.name}</MenuItem>
+                              ))}
+                          </Select>
+                          <TextField
+                            fullWidth
+                            label="Output Model Name"
+                            value={ggufOutputName}
+                            onChange={(e) => setGgufOutputName(e.target.value)}
+                            sx={{ mb: 2 }}
+                          />
+                          <Select
+                            fullWidth
+                            value={ggufOuttype}
+                            onChange={(e) => setGgufOuttype(e.target.value)}
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="f16">Float16</MenuItem>
+                            <MenuItem value="f32">Float32</MenuItem>
+                          </Select>
+                          <Button 
+                            fullWidth
+                            variant="contained" 
+                            onClick={runGgufConversion}
+                            disabled={!ggufInputModel}
+                            sx={{ mb: 2 }}
+                          >
+                            Convert to GGUF
+                          </Button>
+                        </>
+                      )}
 
                           {unslothMode !== 'gguf_convert' && (
                             <Button 
