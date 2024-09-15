@@ -1023,7 +1023,7 @@ def quantize_gguf():
             raise FileNotFoundError(f"Input GGUF file not found: {input_file}")
 
         # Path to the unsloth-cli-2.py script
-        unsloth_script = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
+        unsloth_script = os.path.join(base_dir, 'unsloth-cli-2.py')
 
         command = [
             "python", unsloth_script, "quantize",
