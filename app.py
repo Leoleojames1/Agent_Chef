@@ -22,6 +22,7 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 logging.basicConfig(level=logging.INFO)
 
 base_dir = os.path.join(os.path.dirname(__file__), 'agent_chef_data')
+cutlery_dir = os.path.join(os.path.dirname(__file__), 'cutlery')
 input_dir = os.path.join(base_dir, "ingredients")
 output_dir = os.path.join(base_dir, "dishes")
 latex_library_dir = os.path.join(base_dir, "latex_library")
@@ -1023,7 +1024,7 @@ def quantize_gguf():
             raise FileNotFoundError(f"Input GGUF file not found: {input_file}")
 
         # Path to the unsloth-cli-2.py script
-        unsloth_script = os.path.join(base_dir, 'unsloth-cli-2.py')
+        unsloth_script = os.path.join(cutlery_dir, 'unsloth-cli-2.py')
 
         command = [
             "python", unsloth_script, "quantize",
