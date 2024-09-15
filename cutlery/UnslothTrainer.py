@@ -103,20 +103,35 @@ class UnslothTrainer:
         else:
             self.logger.info("Training completed successfully")
             # Move the adapter to the adapters directory
-            adapter_path = os.path.join(output_dir, "adapter_model.bin")
+            adapter_path = os.path.join(adapters_dir, "adapter_model.bin")
             if os.path.exists(adapter_path):
                 shutil.move(adapter_path, os.path.join(self.adapters_dir, f"{output_name}_adapter.bin"))
-            return {"message": "Training completed successfully", "output": "\n".join(output), "model_path": output_dir}
+            return {"message": "Training completed successfully", "output": "\n".join(output), "model_path": adapters_dir}
         
     def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
-        # Construct full paths
-        base_model_dir = os.path.join(self.output_dir, base_model_path)
-        adapter_dir = os.path.join(self.output_dir, adapter_path)
+        # Possible directories where the base model might be located
+        possible_base_dirs = [
+            self.output_dir,
+            os.path.join(self.base_dir, "huggingface_models"),
+            os.path.join(self.base_dir, "oven")
+        ]
         
-        if not os.path.exists(base_model_dir):
-            raise FileNotFoundError(f"Base model directory not found: {base_model_dir}")
+        base_model_dir = None
+        for dir in possible_base_dirs:
+            temp_path = os.path.join(dir, base_model_path)
+            if os.path.exists(temp_path):
+                base_model_dir = temp_path
+                break
+        
+        if not base_model_dir:
+            raise FileNotFoundError(f"Base model directory not found: {base_model_path}")
+        
+        self.logger.info(f"Base model found at: {base_model_dir}")
+        
+        # Construct full path for adapter
+        adapter_dir = os.path.join(self.output_dir, adapter_path)
         
         if not os.path.exists(adapter_dir):
             raise FileNotFoundError(f"Adapter directory not found: {adapter_dir}")
