@@ -1489,6 +1489,54 @@ useEffect(() => {
                         </>
                       )}
 
+                      {unslothMode === 'dequantize' && (
+                        <>
+                          <Typography variant="h6" gutterBottom>Dequantize Model</Typography>
+                          <Select
+                            fullWidth
+                            value={ggufInputModel}
+                            onChange={(e) => setGgufInputModel(e.target.value)}
+                            displayEmpty
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="">Select Input Model</MenuItem>
+                            <ListSubheader>Hugging Face Models</ListSubheader>
+                            {huggingfaceFolders.map((folder) => (
+                              <MenuItem key={`hf-${folder}`} value={folder}>{folder}</MenuItem>
+                            ))}
+                            <ListSubheader>Oven Models</ListSubheader>
+                            {ovenModels.map((model) => (
+                              <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
+                            ))}
+                          </Select>
+                          <TextField
+                            fullWidth
+                            label="Output Model Name"
+                            value={ggufOutputName}
+                            onChange={(e) => setGgufOutputName(e.target.value)}
+                            sx={{ mb: 2 }}
+                          />
+                          <Select
+                            fullWidth
+                            value={ggufOuttype}
+                            onChange={(e) => setGgufOuttype(e.target.value)}
+                            sx={{ mb: 2 }}
+                          >
+                            <MenuItem value="f16">Float16</MenuItem>
+                            <MenuItem value="f32">Float32</MenuItem>
+                          </Select>
+                          <Button 
+                            fullWidth
+                            variant="contained" 
+                            onClick={runGgufConversion}
+                            disabled={!ggufInputModel}
+                            sx={{ mb: 2 }}
+                          >
+                            Convert to GGUF
+                          </Button>
+                        </>
+                      )}
+
                           {unslothMode !== 'gguf_convert' && (
                             <Button 
                               fullWidth
