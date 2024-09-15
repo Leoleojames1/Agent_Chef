@@ -204,6 +204,11 @@ function App() {
   const [dequantizeInputModel, setDequantizeInputModel] = useState('');
   const [dequantizeOutputName, setDequantizeOutputName] = useState('');
   const [dequantizePrecision, setDequantizePrecision] = useState('f16');
+  const [ggufQuantizeInputModel, setGgufQuantizeInputModel] = useState('');
+  const [ggufQuantizeOutputName, setGgufQuantizeOutputName] = useState('');
+  const [ggufQuantizeType, setGgufQuantizeType] = useState('');
+  const [selectedGgufInfo, setSelectedGgufInfo] = useState(null);
+  const [ggufFiles, setGgufFiles] = useState([]);
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -258,6 +263,7 @@ function App() {
     fetchTemplates();
     fetchSeeds();
     fetchOllamaModels();
+    fetchGgufFiles();
   }, []);
 
 useEffect(() => {
@@ -306,6 +312,27 @@ useEffect(() => {
       </ThemeProvider>
     );
   }
+
+  const handleGgufFileSelection = async (file) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/gguf-info/${file}`);
+      setSelectedGgufInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching GGUF file info:', error);
+      setError('Error fetching GGUF file info');
+    }
+  };
+  
+  // Add this new function to fetch GGUF files and their info
+  const fetchGgufFiles = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/gguf-files');
+      setGgufFiles(response.data.gguf_files);
+    } catch (error) {
+      console.error('Error fetching GGUF files:', error);
+      setError('Error fetching GGUF files');
+    }
+  };
 
   const handleColumnTypeToggle = (column) => {
     setColumnTypes(prevTypes => ({
@@ -995,6 +1022,8 @@ useEffect(() => {
     }
   };
   
+
+  // Modify the existing runGgufConversion function
   const runGgufConversion = async () => {
     try {
       setError(null);
@@ -1007,11 +1036,11 @@ useEffect(() => {
       const dataToSend = {
         inputPath: ggufInputModel,
         outputName: ggufOutputName || ggufInputModel,
-        outtype: ggufOuttype
+        quantizationType: ggufOuttype
       };
-  
+
       console.log("Sending data for GGUF conversion:", JSON.stringify(dataToSend, null, 2));
-  
+
       const response = await axios.post('http://localhost:5000/api/convert_to_gguf', dataToSend);
     
       if (response.data.error) {
@@ -1019,7 +1048,40 @@ useEffect(() => {
         setOutput('');
       } else {
         setOutput(JSON.stringify(response.data, null, 2));
-        fetchFiles();
+        fetchGgufFiles();
+      }
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+      setOutput('');
+    }
+  };
+
+  // Add this new function to handle GGUF quantization
+  const runGgufQuantization = async () => {
+    try {
+      setError(null);
+      setOutput("Processing GGUF quantization...");
+      
+      if (!ggufQuantizeInputModel) {
+        throw new Error("Please select a GGUF model to quantize.");
+      }
+      
+      const dataToSend = {
+        inputPath: ggufQuantizeInputModel,
+        outputName: ggufQuantizeOutputName || ggufQuantizeInputModel,
+        quantizationType: ggufQuantizeType
+      };
+
+      console.log("Sending data for GGUF quantization:", JSON.stringify(dataToSend, null, 2));
+
+      const response = await axios.post('http://localhost:5000/api/quantize_gguf', dataToSend);
+    
+      if (response.data.error) {
+        setError(response.data.error);
+        setOutput('');
+      } else {
+        setOutput(JSON.stringify(response.data, null, 2));
+        fetchGgufFiles();
       }
     } catch (error) {
       setError(error.response?.data?.error || error.message);
@@ -1323,6 +1385,7 @@ useEffect(() => {
                           <MenuItem value="merge">Merge</MenuItem>
                           <MenuItem value="gguf_convert">GGUF Convert</MenuItem>
                           <MenuItem value="dequantize">Dequantize</MenuItem>
+                          <MenuItem value="quantize">Quantize GGUF</MenuItem>
                         </Select>
                       </FormControl>
 
@@ -1510,8 +1573,13 @@ useEffect(() => {
                             onChange={(e) => setGgufOuttype(e.target.value)}
                             sx={{ mb: 2 }}
                           >
-                            <MenuItem value="f16">Float16</MenuItem>
-                            <MenuItem value="f32">Float32</MenuItem>
+                            <MenuItem value="q4_0">Q4_0</MenuItem>
+                            <MenuItem value="q4_1">Q4_1</MenuItem>
+                            <MenuItem value="q5_0">Q5_0</MenuItem>
+                            <MenuItem value="q5_1">Q5_1</MenuItem>
+                            <MenuItem value="q8_0">Q8_0</MenuItem>
+                            <MenuItem value="f16">F16</MenuItem>
+                            <MenuItem value="f32">F32</MenuItem>
                           </Select>
                           <Button 
                             fullWidth
@@ -1569,7 +1637,63 @@ useEffect(() => {
                           </>
                         )}
 
-                          {unslothMode !== 'gguf_convert' && (
+                        {unslothMode === 'quantize' && (
+                              <>
+                                <Typography variant="h6" gutterBottom>Quantize GGUF</Typography>
+                                <Select
+                                  fullWidth
+                                  value={ggufQuantizeInputModel}
+                                  onChange={(e) => {
+                                    setGgufQuantizeInputModel(e.target.value);
+                                    handleGgufFileSelection(e.target.value);
+                                  }}
+                                  displayEmpty
+                                  sx={{ mb: 2 }}
+                                >
+                                  <MenuItem value="">Select GGUF Model</MenuItem>
+                                  {ggufFiles.map((file) => (
+                                    <MenuItem key={file} value={file}>{file}</MenuItem>
+                                  ))}
+                                </Select>
+                                {selectedGgufInfo && (
+                                  <Typography variant="body2" sx={{ mb: 2 }}>
+                                    Current quantization: {selectedGgufInfo.quantization}
+                                  </Typography>
+                                )}
+                                <TextField
+                                  fullWidth
+                                  label="Output Model Name"
+                                  value={ggufQuantizeOutputName}
+                                  onChange={(e) => setGgufQuantizeOutputName(e.target.value)}
+                                  sx={{ mb: 2 }}
+                                />
+                                <Select
+                                  fullWidth
+                                  value={ggufQuantizeType}
+                                  onChange={(e) => setGgufQuantizeType(e.target.value)}
+                                  sx={{ mb: 2 }}
+                                >
+                                  <MenuItem value="q4_0">Q4_0</MenuItem>
+                                  <MenuItem value="q4_1">Q4_1</MenuItem>
+                                  <MenuItem value="q5_0">Q5_0</MenuItem>
+                                  <MenuItem value="q5_1">Q5_1</MenuItem>
+                                  <MenuItem value="q8_0">Q8_0</MenuItem>
+                                  <MenuItem value="f16">F16</MenuItem>
+                                  <MenuItem value="f32">F32</MenuItem>
+                                </Select>
+                                <Button 
+                                  fullWidth
+                                  variant="contained" 
+                                  onClick={runGgufQuantization}
+                                  disabled={!ggufQuantizeInputModel || !ggufQuantizeType}
+                                  sx={{ mb: 2 }}
+                                >
+                                  Quantize GGUF
+                                </Button>
+                              </>
+                            )}
+
+                          {(unslothMode === 'train' || unslothMode === 'merge') && (
                             <Button 
                               fullWidth
                               variant="contained" 
