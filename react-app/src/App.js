@@ -195,6 +195,7 @@ function App() {
   const [mergeOutputName, setMergeOutputName] = useState('');
   const [unslothMode, setUnslothMode] = useState('train');
   const [adapterFiles, setAdapterFiles] = useState([]);
+  const [dequantizeOption, setDequantizeOption] = useState('no');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -932,7 +933,8 @@ useEffect(() => {
       const dataToSend = {
         baseModelPath: mergeBaseModel,
         adapterPath: mergeAdapterModel,
-        outputPath: mergeOutputName
+        outputPath: mergeOutputName,
+        dequantize: dequantizeOption
       };
   
       console.log("Sending data to Unsloth merger:", JSON.stringify(dataToSend, null, 2));
@@ -1386,6 +1388,17 @@ useEffect(() => {
                             onChange={(e) => setMergeOutputName(e.target.value)}
                             sx={{ mb: 2 }}
                           />
+                          <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel>Dequantize LoRA</InputLabel>
+                            <Select
+                              value={dequantizeOption}
+                              onChange={(e) => setDequantizeOption(e.target.value)}
+                            >
+                              <MenuItem value="no">No dequantization</MenuItem>
+                              <MenuItem value="f16">Dequantize to Float16</MenuItem>
+                              <MenuItem value="f32">Dequantize to Float32</MenuItem>
+                            </Select>
+                          </FormControl>
                         </>
                       )}
 

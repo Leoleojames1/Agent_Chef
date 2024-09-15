@@ -7,6 +7,7 @@ This script extends the original unsloth-cli.py with additional features:
 - Validation split option for better performance monitoring
 - Improved error handling and fallback options for model loading
 - Merging functionality for LoRA adapters
+- Dequantization option for quantized models
 - [You can add more features here as needed]
 
 Usage example for training:
@@ -19,6 +20,25 @@ Usage example for training:
 Usage example for merging:
     python unsloth-cli-2.py merge --base_model_path "path/to/base/model" \
     --adapter_path "path/to/adapter" --output_path "path/to/output"
+
+Usage example with dequantization:
+    python unsloth-cli-2.py train --model_name "your_model_path" --dataset "your_dataset_path" \
+    --load_in_4bit --dequantize
+
+Dequantization Feature:
+The --dequantize option allows you to convert quantized weights back to full precision
+after loading the model. This can be useful when you want to fine-tune or use a
+previously quantized model in full precision. However, please note:
+
+1. Dequantization does not recover information lost during the initial quantization.
+   The quality of the model may still be lower than if it was originally trained in
+   full precision.
+
+2. Dequantizing increases memory usage significantly, as it converts weights to
+   full precision (typically float32).
+
+3. This option is most useful when you need to perform operations that require
+   full precision weights but want to start from a quantized model.
 
 To see a full list of configurable options, use:
     python unsloth-cli-2.py train --help
@@ -101,6 +121,11 @@ def load_model_and_tokenizer(args):
                 dtype=args.dtype,
                 load_in_4bit=False,
             )
+        
+        if args.dequantize:
+            logger.info("Dequantizing model weights...")
+            model = dequantize_weights(model)
+            
         logger.info(f"Model loaded successfully with FastLanguageModel in {'16-bit' if args.load_in_16bit else '4-bit' if args.load_in_4bit else 'default'} precision")
     except Exception as e:
         logger.warning(f"Failed to load with FastLanguageModel: {e}")
@@ -125,6 +150,11 @@ def load_model_and_tokenizer(args):
                     torch_dtype=args.dtype,
                     device_map="auto"
                 )
+                
+            if args.dequantize:
+                logger.info("Dequantizing model weights...")
+                model = dequantize_weights(model)
+                
             logger.info(f"Model loaded successfully with standard HuggingFace method in {'16-bit' if args.load_in_16bit else '4-bit' if args.load_in_4bit else 'default'} precision")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
@@ -132,7 +162,7 @@ def load_model_and_tokenizer(args):
 
     return model, tokenizer
 
-def merge_adapter(base_model_path, adapter_path, output_path):
+def merge_adapter(base_model_path, adapter_path, output_path, dequantize='no'):
     logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
     
     try:
@@ -142,6 +172,13 @@ def merge_adapter(base_model_path, adapter_path, output_path):
         
         logger.info(f"Loading adapter from: {adapter_path}")
         model = PeftModel.from_pretrained(base_model, adapter_path)
+        
+        if dequantize != 'no':
+            logger.info(f"Dequantizing LoRA weights to {dequantize}")
+            target_dtype = torch.float16 if dequantize == 'f16' else torch.float32
+            for name, param in model.named_parameters():
+                if 'lora' in name:
+                    param.data = param.data.to(target_dtype)
         
         logger.info("Merging adapter with base model")
         merged_model = model.merge_and_unload()
@@ -164,6 +201,21 @@ def run_merge(args):
     else:
         logger.info(result["message"])
     return result
+
+def dequantize_weights(model):
+    import torch
+    from transformers import AutoModelForCausalLM
+
+    def dequantize_layer(layer):
+        for name, param in layer.named_parameters():
+            if hasattr(param, 'quant_state'):
+                param.data = param.data.dequantize()
+                delattr(param, 'quant_state')
+
+    for module in model.modules():
+        dequantize_layer(module)
+
+    return model
 
 def run(args):
     model, tokenizer = load_model_and_tokenizer(args)
@@ -318,6 +370,7 @@ if __name__ == "__main__":
     model_group.add_argument('--train_dataset', type=str, required=True, help="Path to the training parquet dataset file")
     model_group.add_argument('--validation_dataset', type=str, help="Path to the validation parquet dataset file")
     model_group.add_argument('--test_dataset', type=str, help="Path to the test parquet dataset file")
+    model_group.add_argument('--dequantize', action='store_true', help="Dequantize model weights after loading")
 
     lora_group = train_parser.add_argument_group("🧠 LoRA Options")
     lora_group.add_argument('--r', type=int, default=16, help="Rank for LoRA model")
@@ -363,6 +416,7 @@ if __name__ == "__main__":
     merge_parser.add_argument('--base_model_path', type=str, required=True, help="Path to the base model")
     merge_parser.add_argument('--adapter_path', type=str, required=True, help="Path to the LoRA adapter")
     merge_parser.add_argument('--output_path', type=str, required=True, help="Path to save the merged model")
+    merge_parser.add_argument('--dequantize', choices=['no', 'f16', 'f32'], default='no', help="Dequantize LoRA weights before merging")
 
     args = parser.parse_args()
 

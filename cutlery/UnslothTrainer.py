@@ -88,7 +88,7 @@ class UnslothTrainer:
                 self.convert_to_gguf(output_dir, os.path.basename(output_dir))
             return {"message": "Training completed successfully", "output": "\n".join(output)}
 
-    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=False):
+    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=False, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
         cli_args = [
@@ -97,7 +97,8 @@ class UnslothTrainer:
             "merge",
             "--base_model_path", base_model_path,
             "--adapter_path", adapter_path,
-            "--output_path", output_path
+            "--output_path", output_path,
+            "--dequantize", dequantize
         ]
 
         self.logger.info(f"Running command: {' '.join(cli_args)}")

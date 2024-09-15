@@ -853,6 +853,7 @@ def merge_adapter():
     base_model_path = data.get('baseModelPath')
     adapter_path = data.get('adapterPath')
     output_path = data.get('outputPath')
+    dequantize = data.get('dequantize', 'no')  # 'no', 'f16', or 'f32'
 
     try:
         if not base_model_path or not adapter_path or not output_path:
@@ -867,7 +868,7 @@ def merge_adapter():
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
         print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
-        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path, True)
+        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path, dequantize=dequantize)
 
         return jsonify({
             'message': 'Unsloth merge completed successfully',
