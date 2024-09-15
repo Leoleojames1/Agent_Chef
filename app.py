@@ -970,7 +970,7 @@ def convert_to_gguf():
         os.makedirs(gguf_output_dir, exist_ok=True)
 
         # Path to the convert script in llama.cpp
-        convert_script = os.path.join(os.path.expanduser("~/llama.cpp"), "convert.py")
+        convert_script = os.path.join(os.path.expanduser("~/llama.cpp"), "convert_hf_to_gguf.py")
 
         # Construct the command
         command = [
