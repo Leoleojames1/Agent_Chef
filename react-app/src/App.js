@@ -208,6 +208,7 @@ function App() {
   const [ggufQuantizeOutputName, setGgufQuantizeOutputName] = useState('');
   const [ggufQuantizeType, setGgufQuantizeType] = useState('');
   const [selectedGgufInfo, setSelectedGgufInfo] = useState(null);
+  const [ggufFiles, setGgufFiles] = useState([]);
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -262,8 +263,7 @@ function App() {
     fetchTemplates();
     fetchSeeds();
     fetchOllamaModels();
-    fetchAdapterFiles();
-    fetchGgufFiles();  
+    fetchGgufFiles();
   }, []);
 
 useEffect(() => {
@@ -1378,10 +1378,8 @@ useEffect(() => {
                       <FormControl fullWidth sx={{ mb: 2 }}>
                         <InputLabel>Operation Mode</InputLabel>
                         <Select
-                          fullWidth
                           value={unslothMode}
                           onChange={(e) => setUnslothMode(e.target.value)}
-                          sx={{ mb: 2 }}
                         >
                           <MenuItem value="train">Train</MenuItem>
                           <MenuItem value="merge">Merge</MenuItem>
@@ -1542,7 +1540,6 @@ useEffect(() => {
                         </>
                       )}
 
-                      // Modify the GGUF conversion section
                       {unslothMode === 'gguf_convert' && (
                         <>
                           <Typography variant="h6" gutterBottom>GGUF Conversion</Typography>
@@ -1640,64 +1637,63 @@ useEffect(() => {
                           </>
                         )}
 
-                        // Add the new GGUF quantization section
                         {unslothMode === 'quantize' && (
-                          <>
-                            <Typography variant="h6" gutterBottom>Quantize GGUF</Typography>
-                            <Select
-                              fullWidth
-                              value={ggufQuantizeInputModel}
-                              onChange={(e) => {
-                                setGgufQuantizeInputModel(e.target.value);
-                                handleGgufFileSelection(e.target.value);
-                              }}
-                              displayEmpty
-                              sx={{ mb: 2 }}
-                            >
-                              <MenuItem value="">Select GGUF Model</MenuItem>
-                              {ggufFiles.map((file) => (
-                                <MenuItem key={file} value={file}>{file}</MenuItem>
-                              ))}
-                            </Select>
-                            {selectedGgufInfo && (
-                              <Typography variant="body2" sx={{ mb: 2 }}>
-                                Current quantization: {selectedGgufInfo.quantization}
-                              </Typography>
+                              <>
+                                <Typography variant="h6" gutterBottom>Quantize GGUF</Typography>
+                                <Select
+                                  fullWidth
+                                  value={ggufQuantizeInputModel}
+                                  onChange={(e) => {
+                                    setGgufQuantizeInputModel(e.target.value);
+                                    handleGgufFileSelection(e.target.value);
+                                  }}
+                                  displayEmpty
+                                  sx={{ mb: 2 }}
+                                >
+                                  <MenuItem value="">Select GGUF Model</MenuItem>
+                                  {ggufFiles.map((file) => (
+                                    <MenuItem key={file} value={file}>{file}</MenuItem>
+                                  ))}
+                                </Select>
+                                {selectedGgufInfo && (
+                                  <Typography variant="body2" sx={{ mb: 2 }}>
+                                    Current quantization: {selectedGgufInfo.quantization}
+                                  </Typography>
+                                )}
+                                <TextField
+                                  fullWidth
+                                  label="Output Model Name"
+                                  value={ggufQuantizeOutputName}
+                                  onChange={(e) => setGgufQuantizeOutputName(e.target.value)}
+                                  sx={{ mb: 2 }}
+                                />
+                                <Select
+                                  fullWidth
+                                  value={ggufQuantizeType}
+                                  onChange={(e) => setGgufQuantizeType(e.target.value)}
+                                  sx={{ mb: 2 }}
+                                >
+                                  <MenuItem value="q4_0">Q4_0</MenuItem>
+                                  <MenuItem value="q4_1">Q4_1</MenuItem>
+                                  <MenuItem value="q5_0">Q5_0</MenuItem>
+                                  <MenuItem value="q5_1">Q5_1</MenuItem>
+                                  <MenuItem value="q8_0">Q8_0</MenuItem>
+                                  <MenuItem value="f16">F16</MenuItem>
+                                  <MenuItem value="f32">F32</MenuItem>
+                                </Select>
+                                <Button 
+                                  fullWidth
+                                  variant="contained" 
+                                  onClick={runGgufQuantization}
+                                  disabled={!ggufQuantizeInputModel || !ggufQuantizeType}
+                                  sx={{ mb: 2 }}
+                                >
+                                  Quantize GGUF
+                                </Button>
+                              </>
                             )}
-                            <TextField
-                              fullWidth
-                              label="Output Model Name"
-                              value={ggufQuantizeOutputName}
-                              onChange={(e) => setGgufQuantizeOutputName(e.target.value)}
-                              sx={{ mb: 2 }}
-                            />
-                            <Select
-                              fullWidth
-                              value={ggufQuantizeType}
-                              onChange={(e) => setGgufQuantizeType(e.target.value)}
-                              sx={{ mb: 2 }}
-                            >
-                              <MenuItem value="q4_0">Q4_0</MenuItem>
-                              <MenuItem value="q4_1">Q4_1</MenuItem>
-                              <MenuItem value="q5_0">Q5_0</MenuItem>
-                              <MenuItem value="q5_1">Q5_1</MenuItem>
-                              <MenuItem value="q8_0">Q8_0</MenuItem>
-                              <MenuItem value="f16">F16</MenuItem>
-                              <MenuItem value="f32">F32</MenuItem>
-                            </Select>
-                            <Button 
-                              fullWidth
-                              variant="contained" 
-                              onClick={runGgufQuantization}
-                              disabled={!ggufQuantizeInputModel || !ggufQuantizeType}
-                              sx={{ mb: 2 }}
-                            >
-                              Quantize GGUF
-                            </Button>
-                          </>
-                        )}
 
-                          {unslothMode !== 'gguf_convert' && (
+                          {(unslothMode === 'train' || unslothMode === 'merge') && (
                             <Button 
                               fullWidth
                               variant="contained" 
