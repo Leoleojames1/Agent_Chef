@@ -11,11 +11,10 @@ class UnslothTrainer:
         self.base_dir = base_dir
         self.input_dir = input_dir
         self.output_dir = output_dir
-        self.oven_dir = self.output_dir
-        self.models_dir = os.path.join(self.oven_dir, "models")
-        self.adapters_dir = os.path.join(self.oven_dir, "adapters")
-        self.merged_dir = os.path.join(self.oven_dir, "merged")
-        self.gguf_dir = os.path.join(self.oven_dir, "gguf_models")
+        self.models_dir = os.path.join(self.output_dir, "models")
+        self.adapters_dir = os.path.join(self.output_dir, "adapters")
+        self.merged_dir = os.path.join(self.output_dir, "merged")
+        self.gguf_dir = os.path.join(self.output_dir, "gguf_models")
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
         self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
@@ -31,7 +30,7 @@ class UnslothTrainer:
         return os.path.join(model_dir, latest_checkpoint)
     
     def get_merged_model_path(self, model_name):
-        model_dir = os.path.join(self.oven_dir, model_name)
+        model_dir = os.path.join(self.output_dir, model_name)
         if not os.path.exists(model_dir):
             return None
         # Check for the '900' directory or the highest numbered directory
@@ -49,7 +48,7 @@ class UnslothTrainer:
 
     def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_name="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
-        output_dir = os.path.join(self.oven_dir, output_name)
+        output_dir = os.path.join(self.output_dir, output_name)
         
         cli_args = [
             "python", self.unsloth_script_path, "train",
@@ -111,8 +110,8 @@ class UnslothTrainer:
     def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
-        base_model_dir = os.path.join(self.oven_dir, base_model_path)
-        adapter_dir = os.path.join(self.oven_dir, adapter_path)
+        base_model_dir = os.path.join(self.output_dir, base_model_path)
+        adapter_dir = os.path.join(self.output_dir, adapter_path)
         
         latest_checkpoint = self.get_latest_checkpoint(adapter_dir)
         if not latest_checkpoint:
@@ -122,7 +121,7 @@ class UnslothTrainer:
         if not os.path.exists(adapter_model_path):
             raise FileNotFoundError(f"Adapter model not found: {adapter_model_path}")
 
-        final_output_path = os.path.join(self.oven_dir, output_name)
+        final_output_path = os.path.join(self.output_dir, output_name)
         os.makedirs(final_output_path, exist_ok=True)
 
         cli_args = [
