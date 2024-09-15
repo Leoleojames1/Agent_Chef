@@ -256,6 +256,28 @@ def run_merge(args):
         logger.info(result["message"])
     return result
 
+def run_dequantize(args):
+    """
+    Execute the dequantize operation based on command-line arguments.
+    
+    Args:
+        args: Command-line arguments
+    
+    Returns:
+        True if dequantization was successful, False otherwise
+    """
+    try:
+        logger.info(f"Dequantizing model from {args.input_path} to {args.output_path}")
+        success = dequantize_model(args.input_path, args.output_path, args.precision)
+        if success:
+            logger.info("Dequantization completed successfully")
+        else:
+            logger.error("Dequantization failed")
+        return success
+    except Exception as e:
+        logger.error(f"Error during dequantization: {str(e)}")
+        return False
+    
 def dequantize_model(input_path, output_path, precision):
     logger.info(f"Dequantizing model from {input_path} to {output_path}")
     
@@ -442,7 +464,7 @@ def run(args):
         logger.warning("The model is not saved!")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="🦥 Enhanced fine-tuning and merging script using Unsloth")
+    parser = argparse.ArgumentParser(description="🦥 Enhanced fine-tuning, merging, and dequantizing script using Unsloth")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Training parser
@@ -505,6 +527,12 @@ if __name__ == "__main__":
     merge_parser.add_argument('--output_path', type=str, required=True, help="Path to save the merged model")
     merge_parser.add_argument('--dequantize', choices=['no', 'f16', 'f32'], default='no', help="Dequantize LoRA weights before merging")
 
+    # Dequantizing parser
+    dequantize_parser = subparsers.add_parser("dequantize", help="Dequantize a model")
+    dequantize_parser.add_argument('--input_path', type=str, required=True, help="Path to the input model")
+    dequantize_parser.add_argument('--output_path', type=str, required=True, help="Path to save the dequantized model")
+    dequantize_parser.add_argument('--precision', choices=['f16', 'f32'], default='f32', help="Precision for dequantization")
+
     args = parser.parse_args()
 
     if args.command == "train":
@@ -532,11 +560,17 @@ if __name__ == "__main__":
         logger.info("3. Check if the model is compatible with the current version of transformers and safetensors.")
         logger.info("4. Try updating your libraries: pip install --upgrade transformers safetensors")
         
-    if args.command == "merge":
+    elif args.command == "merge":
         result = run_merge(args)
         if "error" in result:
             logger.error(result["error"])
         else:
             logger.info(result["message"])
+            
+    elif args.command == "dequantize":
+        success = run_dequantize(args)
+        if not success:
+            logger.error("Dequantization failed")
+            exit(1)
     else:
         parser.print_help()

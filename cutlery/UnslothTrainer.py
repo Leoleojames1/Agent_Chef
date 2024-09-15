@@ -18,8 +18,9 @@ class UnslothTrainer:
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
         self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
+        self.dequantized_dir = os.path.join(self.output_dir, "dequantized_models")
 
-        for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir]:
+        for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir, self.dequantized_dir]:
             os.makedirs(dir_path, exist_ok=True)
 
     def get_latest_checkpoint(self, model_dir):
@@ -166,6 +167,45 @@ class UnslothTrainer:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
     
+    def dequantize_model(self, input_path, output_path, precision):
+        self.logger.info(f"Dequantizing model from {input_path} to {output_path}")
+        
+        cli_args = [
+            "python", self.unsloth_script_path, "dequantize",
+            "--input_path", input_path,
+            "--output_path", output_path,
+            "--precision", precision
+        ]
+
+        self.logger.info(f"Running command: {' '.join(cli_args)}")
+
+        process = subprocess.Popen(
+            cli_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+
+        output = []
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            self.logger.info(line.strip())
+            output.append(line.strip())
+
+        process.wait()
+
+        if process.returncode != 0:
+            self.logger.error("Dequantization failed")
+            return False
+        else:
+            self.logger.info("Dequantization completed successfully")
+            return True
+        
+    def get_dequantized_models(self):
+        return [d for d in os.listdir(self.dequantized_dir) if os.path.isdir(os.path.join(self.dequantized_dir, d))]
+
     def convert_to_gguf(self, input_path, output_name, outtype='f16'):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
         convert_script = os.path.join(self.llama_cpp_dir, "convert_hf_to_gguf.py")

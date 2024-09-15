@@ -811,16 +811,27 @@ def get_adapter_files():
     try:
         adapter_files = []
         oven_models = []
+        dequantized_models = []
         for root, dirs, files in os.walk(oven_dir):
             for dir in dirs:
                 if dir.startswith('checkpoint-'):
                     adapter_files.append(os.path.join(os.path.relpath(root, oven_dir), dir))
                 elif os.path.isfile(os.path.join(root, dir, 'config.json')):  # Check if it's a model directory
                     oven_models.append(os.path.join(os.path.relpath(root, oven_dir), dir))
-        return jsonify({"adapter_files": adapter_files, "oven_models": oven_models})
+        
+        # Get dequantized models
+        dequantized_dir = os.path.join(oven_dir, "dequantized_models")
+        if os.path.exists(dequantized_dir):
+            dequantized_models = [os.path.join("dequantized_models", d) for d in os.listdir(dequantized_dir) if os.path.isdir(os.path.join(dequantized_dir, d))]
+        
+        return jsonify({
+            "adapter_files": adapter_files, 
+            "oven_models": oven_models,
+            "dequantized_models": dequantized_models
+        })
     except Exception as e:
-        logging.exception("Error fetching adapter and oven model files")
-        return jsonify({"error": str(e), "message": "Error fetching adapter and oven model files"}), 500
+        logging.exception("Error fetching adapter and model files")
+        return jsonify({"error": str(e), "message": "Error fetching adapter and model files"}), 500
     
 @app.route('/api/convert_to_gguf', methods=['POST'])
 def convert_to_gguf():
@@ -835,10 +846,10 @@ def convert_to_gguf():
         if not input_path:
             raise ValueError("Input model path must be specified")
 
-        # Construct the full path to the input model's "900" directory
+        # Construct the full path to the input model
         full_input_path = os.path.join(oven_dir, input_path)
         if not os.path.exists(full_input_path):
-            raise FileNotFoundError(f"Input model '900' directory not found: {full_input_path}")
+            raise FileNotFoundError(f"Input model directory not found: {full_input_path}")
 
         # Construct the path to the GGUF output directory
         gguf_output_dir = os.path.join(oven_dir, "gguf_models")
@@ -873,6 +884,50 @@ def convert_to_gguf():
         return jsonify({"error": error_msg}), 500
     except Exception as e:
         error_msg = f"Error in GGUF conversion: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
+@app.route('/api/dequantize', methods=['POST'])
+def dequantize_model():
+    data = request.json
+    print(f"{Fore.CYAN}Received dequantization data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    input_path = data.get('inputPath')
+    output_name = data.get('outputName')
+    precision = data.get('precision', 'f16')
+
+    try:
+        if not input_path:
+            raise ValueError("Input model path must be specified")
+
+        # Construct the full path to the input model
+        full_input_path = os.path.join(oven_dir, input_path)
+        if not os.path.exists(full_input_path):
+            raise FileNotFoundError(f"Input model directory not found: {full_input_path}")
+
+        # Construct the path to the dequantized output directory
+        dequantized_output_dir = os.path.join(oven_dir, "dequantized_models")
+        os.makedirs(dequantized_output_dir, exist_ok=True)
+
+        full_output_path = os.path.join(dequantized_output_dir, output_name)
+
+        unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
+        result = unsloth_trainer.dequantize_model(full_input_path, full_output_path, precision)
+
+        if result:
+            print(f"{Fore.GREEN}Dequantization completed successfully{Style.RESET_ALL}")
+            return jsonify({
+                'message': 'Dequantization completed successfully',
+                'output_path': os.path.relpath(full_output_path, oven_dir)
+            })
+        else:
+            error_msg = "Dequantization failed"
+            print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+            return jsonify({"error": error_msg}), 500
+
+    except Exception as e:
+        error_msg = f"Error in dequantization: {str(e)}"
         print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500

@@ -201,6 +201,9 @@ function App() {
   const [ggufOutputName, setGgufOutputName] = useState('');
   const [ggufOuttype, setGgufOuttype] = useState('f16');
   const [ovenModels, setOvenModels] = useState([]);
+  const [dequantizeInputModel, setDequantizeInputModel] = useState('');
+  const [dequantizeOutputName, setDequantizeOutputName] = useState('');
+  const [dequantizePrecision, setDequantizePrecision] = useState('f16');
   const [expandedSections, setExpandedSections] = useState({
     ingredients: true,
     dishes: true,
@@ -927,6 +930,38 @@ useEffect(() => {
     ));
   };
 
+  const runDequantization = async () => {
+    try {
+      setError(null);
+      setOutput("Processing dequantization...");
+      
+      if (!dequantizeInputModel) {
+        throw new Error("Please select a model to dequantize.");
+      }
+      
+      const dataToSend = {
+        inputPath: dequantizeInputModel,
+        outputName: dequantizeOutputName || dequantizeInputModel,
+        precision: dequantizePrecision
+      };
+  
+      console.log("Sending data for dequantization:", JSON.stringify(dataToSend, null, 2));
+  
+      const response = await axios.post('http://localhost:5000/api/dequantize', dataToSend);
+    
+      if (response.data.error) {
+        setError(response.data.error);
+        setOutput('');
+      } else {
+        setOutput(JSON.stringify(response.data, null, 2));
+        fetchFiles();
+      }
+    } catch (error) {
+      setError(error.response?.data?.error || error.message);
+      setOutput('');
+    }
+  };
+
   const runUnslothMerge = async () => {
     try {
       setError(null);
@@ -1287,6 +1322,7 @@ useEffect(() => {
                           <MenuItem value="train">Train</MenuItem>
                           <MenuItem value="merge">Merge</MenuItem>
                           <MenuItem value="gguf_convert">GGUF Convert</MenuItem>
+                          <MenuItem value="dequantize">Dequantize</MenuItem>
                         </Select>
                       </FormControl>
 
@@ -1490,52 +1526,48 @@ useEffect(() => {
                       )}
 
                       {unslothMode === 'dequantize' && (
-                        <>
-                          <Typography variant="h6" gutterBottom>Dequantize Model</Typography>
-                          <Select
-                            fullWidth
-                            value={ggufInputModel}
-                            onChange={(e) => setGgufInputModel(e.target.value)}
-                            displayEmpty
-                            sx={{ mb: 2 }}
-                          >
-                            <MenuItem value="">Select Input Model</MenuItem>
-                            <ListSubheader>Hugging Face Models</ListSubheader>
-                            {huggingfaceFolders.map((folder) => (
-                              <MenuItem key={`hf-${folder}`} value={folder}>{folder}</MenuItem>
-                            ))}
-                            <ListSubheader>Oven Models</ListSubheader>
-                            {ovenModels.map((model) => (
-                              <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
-                            ))}
-                          </Select>
-                          <TextField
-                            fullWidth
-                            label="Output Model Name"
-                            value={ggufOutputName}
-                            onChange={(e) => setGgufOutputName(e.target.value)}
-                            sx={{ mb: 2 }}
-                          />
-                          <Select
-                            fullWidth
-                            value={ggufOuttype}
-                            onChange={(e) => setGgufOuttype(e.target.value)}
-                            sx={{ mb: 2 }}
-                          >
-                            <MenuItem value="f16">Float16</MenuItem>
-                            <MenuItem value="f32">Float32</MenuItem>
-                          </Select>
-                          <Button 
-                            fullWidth
-                            variant="contained" 
-                            onClick={runGgufConversion}
-                            disabled={!ggufInputModel}
-                            sx={{ mb: 2 }}
-                          >
-                            Convert to GGUF
-                          </Button>
-                        </>
-                      )}
+                          <>
+                            <Typography variant="h6" gutterBottom>Dequantize Model</Typography>
+                            <Select
+                              fullWidth
+                              value={dequantizeInputModel}
+                              onChange={(e) => setDequantizeInputModel(e.target.value)}
+                              displayEmpty
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="">Select Input Model</MenuItem>
+                              <ListSubheader>Oven Models</ListSubheader>
+                              {ovenModels.map((model) => (
+                                <MenuItem key={`oven-${model}`} value={model}>{model}</MenuItem>
+                              ))}
+                            </Select>
+                            <TextField
+                              fullWidth
+                              label="Output Model Name"
+                              value={dequantizeOutputName}
+                              onChange={(e) => setDequantizeOutputName(e.target.value)}
+                              sx={{ mb: 2 }}
+                            />
+                            <Select
+                              fullWidth
+                              value={dequantizePrecision}
+                              onChange={(e) => setDequantizePrecision(e.target.value)}
+                              sx={{ mb: 2 }}
+                            >
+                              <MenuItem value="f16">Float16</MenuItem>
+                              <MenuItem value="f32">Float32</MenuItem>
+                            </Select>
+                            <Button 
+                              fullWidth
+                              variant="contained" 
+                              onClick={runDequantization}
+                              disabled={!dequantizeInputModel}
+                              sx={{ mb: 2 }}
+                            >
+                              Dequantize Model
+                            </Button>
+                          </>
+                        )}
 
                           {unslothMode !== 'gguf_convert' && (
                             <Button 
