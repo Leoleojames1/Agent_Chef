@@ -913,5 +913,6 @@ def merge_adapter():
         logging.exception(error_msg)
         return jsonify({"error": error_msg}), 500
     
+    
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

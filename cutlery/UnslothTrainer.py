@@ -11,7 +11,7 @@ class UnslothTrainer:
         self.base_dir = base_dir
         self.input_dir = input_dir
         self.output_dir = output_dir
-        self.oven_dir = os.path.join(self.output_dir, "oven")
+        self.oven_dir = self.output_dir
         self.models_dir = os.path.join(self.oven_dir, "models")
         self.adapters_dir = os.path.join(self.oven_dir, "adapters")
         self.merged_dir = os.path.join(self.oven_dir, "merged")
