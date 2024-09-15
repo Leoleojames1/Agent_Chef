@@ -831,22 +831,13 @@ def convert_to_gguf():
         if not input_path:
             raise ValueError("Input model path must be specified")
 
-        # Check in huggingface_dir first
-        full_input_path = os.path.join(huggingface_dir, input_path)
-        
-        # If not found in huggingface_dir, check in oven_dir
-        if not os.path.exists(full_input_path):
-            full_input_path = os.path.join(oven_dir, input_path)
-        
-        # If still not found, raise an error
-        if not os.path.exists(full_input_path):
-            raise FileNotFoundError(f"Input model not found: {input_path}")
-
-        print(f"{Fore.GREEN}Initializing GGUF conversion for model: {full_input_path}{Style.RESET_ALL}")
-        
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
-        print(f"{Fore.GREEN}Starting GGUF conversion{Style.RESET_ALL}")
+        full_input_path = unsloth_trainer.get_merged_model_path(input_path)
+        if not full_input_path:
+            raise FileNotFoundError(f"Input model not found: {input_path}")
+
+        print(f"{Fore.GREEN}Starting GGUF conversion for model: {full_input_path}{Style.RESET_ALL}")
         result = unsloth_trainer.convert_to_gguf(full_input_path, output_name, outtype)
 
         if result['success']:
@@ -878,9 +869,6 @@ def merge_adapter():
             raise ValueError("Base model, adapter model, and output name must be specified")
 
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
-        
-        base_model_path = os.path.join(unsloth_trainer.models_dir, base_model_path)
-        adapter_path = os.path.join(unsloth_trainer.adapters_dir, adapter_path)
 
         print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
         result = unsloth_trainer.merge_adapter(
@@ -890,8 +878,6 @@ def merge_adapter():
             convert_to_gguf=True,
             dequantize=dequantize
         )
-        unsloth_trainer.cleanup_merged_models()
-        unsloth_trainer.cleanup_gguf_models()
         
         return jsonify({
             'message': 'Unsloth merge completed successfully',
