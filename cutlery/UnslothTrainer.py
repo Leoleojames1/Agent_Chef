@@ -96,13 +96,19 @@ class UnslothTrainer:
         merged_dir = os.path.join(self.output_dir, "merged_models")
         os.makedirs(merged_dir, exist_ok=True)
         
+        # Parse the original output path
+        original_output_name = os.path.basename(output_path)
+        
         # If dequantizing, create a separate directory
         if dequantize != 'no':
             dequantized_dir = os.path.join(merged_dir, f"dequantized_{dequantize}")
             os.makedirs(dequantized_dir, exist_ok=True)
-            output_path = os.path.join(dequantized_dir, os.path.basename(output_path))
+            final_output_path = os.path.join(dequantized_dir, original_output_name)
         else:
-            output_path = os.path.join(merged_dir, os.path.basename(output_path))
+            final_output_path = os.path.join(merged_dir, original_output_name)
+
+        # Ensure the final output directory exists
+        os.makedirs(os.path.dirname(final_output_path), exist_exist=True)
 
         cli_args = [
             "python",
@@ -110,7 +116,7 @@ class UnslothTrainer:
             "merge",
             "--base_model_path", base_model_path,
             "--adapter_path", adapter_path,
-            "--output_path", output_path,
+            "--output_path", final_output_path,
             "--dequantize", dequantize
         ]
 
@@ -141,12 +147,12 @@ class UnslothTrainer:
             
             if convert_to_gguf:
                 self.logger.info("Starting GGUF conversion")
-                gguf_result = self.convert_to_gguf(output_path, os.path.basename(output_path))
+                gguf_result = self.convert_to_gguf(final_output_path, original_output_name)
                 if gguf_result:
-                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output), "merged_path": output_path}
+                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output), "merged_path": final_output_path}
                 else:
-                    return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": output_path}
-            return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": output_path}
+                    return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
+            return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
     
     def convert_to_gguf(self, input_path, model_name):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
