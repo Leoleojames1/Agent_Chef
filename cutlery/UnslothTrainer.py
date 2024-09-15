@@ -113,9 +113,8 @@ class UnslothTrainer:
         
         # Possible directories where the base model might be located
         possible_base_dirs = [
-            self.output_dir,
             os.path.join(self.base_dir, "huggingface_models"),
-            os.path.join(self.base_dir, "oven")
+            os.path.join(self.base_dir, "oven"),
         ]
         
         base_model_dir = None
@@ -131,7 +130,7 @@ class UnslothTrainer:
         self.logger.info(f"Base model found at: {base_model_dir}")
         
         # Construct full path for adapter
-        adapter_dir = os.path.join(self.output_dir, adapter_path)
+        adapter_dir = os.path.join(self.output_dir, "adapters", adapter_path)
         
         if not os.path.exists(adapter_dir):
             raise FileNotFoundError(f"Adapter directory not found: {adapter_dir}")
@@ -150,7 +149,7 @@ class UnslothTrainer:
             raise FileNotFoundError(f"Adapter model not found: {adapter_model_path}")
 
         final_output_path = os.path.join(self.merged_dir, output_name)
-        os.makedirs(final_output_path, exist_ok=True)
+        os.makedirs(final_output_path, exist_exist=True)
 
         cli_args = [
             "python", self.unsloth_script_path, "merge",
