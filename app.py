@@ -755,53 +755,26 @@ def unsloth_train():
         if not training_file or not huggingface_model:
             raise ValueError("Training file and Hugging Face model must be specified")
 
-        if not huggingface_model:
-            raise ValueError("Hugging Face model not specified")
-
-        # Search for the files in multiple directories
-        possible_dirs = [input_dir, output_dir, salad_dir, edits_dir]
-        
-        def find_file(filename):
-            if not filename:
-                return None
-            for dir_path in possible_dirs:
-                full_path = os.path.join(dir_path, filename)
-                if os.path.exists(full_path):
-                    return full_path
-            return None
-
-        train_dataset_path = find_file(training_file)
-        validation_dataset_path = find_file(validation_file)
-        test_dataset_path = find_file(test_file)
-        
-        if not train_dataset_path:
-            raise FileNotFoundError(f"Training file '{training_file}' not found in any of the expected directories")
-
-        print(f"{Fore.GREEN}Initializing Unsloth trainer with model: {huggingface_model}{Style.RESET_ALL}")
-        
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
-        print(f"{Fore.GREEN}Starting Unsloth training{Style.RESET_ALL}")
-        model_output_dir = os.path.join(oven_dir, new_model_name)
         result = unsloth_trainer.train(
             model_name=os.path.join(huggingface_dir, huggingface_model),
-            train_dataset=train_dataset_path,
-            validation_dataset=validation_dataset_path,
-            test_dataset=test_dataset_path,
-            output_dir=model_output_dir,
+            train_dataset=os.path.join(input_dir, training_file),
+            validation_dataset=os.path.join(input_dir, validation_file) if validation_file else None,
+            test_dataset=os.path.join(input_dir, test_file) if test_file else None,
+            output_name=new_model_name,
             max_steps=num_train_epochs * 100,
             per_device_train_batch_size=per_device_train_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            save_gguf=True,
-            quantization="q4_k_m",
             load_in_4bit=(precision == '4bit'),
             load_in_16bit=(precision == '16bit')
         )
 
+        unsloth_trainer.cleanup()
+
         return jsonify({
             'message': 'Unsloth training completed successfully',
-            'training_result': result,
-            'output_dir': model_output_dir
+            'training_result': result
         })
 
     except Exception as e:
@@ -893,7 +866,7 @@ def merge_adapter():
     
     base_model_path = data.get('baseModelPath')
     adapter_path = data.get('adapterPath')
-    output_path = data.get('outputPath')
+    output_name = data.get('outputName')
     dequantize = data.get('dequantize', 'no')  # 'no', 'f16', or 'f32'
 
     try:
@@ -909,7 +882,13 @@ def merge_adapter():
         unsloth_trainer = UnslothTrainer(base_dir, input_dir, oven_dir)
         
         print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
-        result = unsloth_trainer.merge_adapter(base_model_path, adapter_path, output_path, convert_to_gguf=True, dequantize=dequantize)
+        result = unsloth_trainer.merge_adapter(
+            base_model_path=os.path.join(unsloth_trainer.models_dir, base_model_path),
+            adapter_path=os.path.join(unsloth_trainer.adapters_dir, adapter_path),
+            output_name=output_name,
+            convert_to_gguf=True,
+            dequantize=dequantize
+        )
         unsloth_trainer.cleanup_merged_models()
         unsloth_trainer.cleanup_gguf_models()
         

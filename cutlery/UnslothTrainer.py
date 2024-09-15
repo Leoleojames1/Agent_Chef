@@ -12,9 +12,17 @@ class UnslothTrainer:
         self.base_dir = base_dir
         self.input_dir = input_dir
         self.output_dir = output_dir
+        self.oven_dir = os.path.join(self.output_dir, "oven")
+        self.models_dir = os.path.join(self.oven_dir, "models")
+        self.adapters_dir = os.path.join(self.oven_dir, "adapters")
+        self.merged_dir = os.path.join(self.oven_dir, "merged")
+        self.gguf_dir = os.path.join(self.oven_dir, "gguf")
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
         self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
+
+        for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir]:
+            os.makedirs(dir_path, exist_ok=True)
 
     def _find_unsloth_script(self):
         script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
@@ -22,18 +30,12 @@ class UnslothTrainer:
             raise FileNotFoundError(f"unsloth-cli-2.py not found at {script_path}")
         return script_path
 
-    def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_dir="unsloth_model", **kwargs):
+    def train(self, model_name, train_dataset, validation_dataset=None, test_dataset=None, output_name="unsloth_model", **kwargs):
         self.logger.info("Starting Unsloth training")
-        self.logger.info(f"Model name: {model_name}")
-        self.logger.info(f"Training dataset: {train_dataset}")
-        self.logger.info(f"Validation dataset: {validation_dataset}")
-        self.logger.info(f"Test dataset: {test_dataset}")
-        self.logger.info(f"Output directory: {output_dir}")
+        output_dir = os.path.join(self.models_dir, output_name)
         
         cli_args = [
-            "python",
-            self.unsloth_script_path,
-            "train",
+            "python", self.unsloth_script_path, "train",
             "--model_name", model_name,
             "--train_dataset", train_dataset,
             "--output_dir", output_dir,
@@ -41,7 +43,6 @@ class UnslothTrainer:
 
         if validation_dataset:
             cli_args.extend(["--validation_dataset", validation_dataset])
-        
         if test_dataset:
             cli_args.extend(["--test_dataset", test_dataset])
 
@@ -62,7 +63,6 @@ class UnslothTrainer:
 
         self.logger.info(f"Running command: {' '.join(cli_args)}")
 
-        # Run the command and capture output in real-time
         process = subprocess.Popen(
             cli_args,
             stdout=subprocess.PIPE,
@@ -85,35 +85,40 @@ class UnslothTrainer:
             return {"error": "Training failed", "output": "\n".join(output)}
         else:
             self.logger.info("Training completed successfully")
-            if kwargs.get('convert_to_gguf'):
-                self.convert_to_gguf(output_dir, os.path.basename(output_dir))
-            return {"message": "Training completed successfully", "output": "\n".join(output)}
+            # Move the adapter to the adapters directory
+            adapter_path = os.path.join(output_dir, "adapter_model.bin")
+            if os.path.exists(adapter_path):
+                shutil.move(adapter_path, os.path.join(self.adapters_dir, f"{output_name}_adapter.bin"))
+            return {"message": "Training completed successfully", "output": "\n".join(output), "model_path": output_dir}
 
-    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=True, dequantize='no'):
+    def dequantize(self, input_path, output_name, precision='f16'):
+        self.logger.info(f"Dequantizing model: {input_path}")
+        output_path = os.path.join(self.models_dir, output_name)
+        
+        try:
+            model = AutoModelForCausalLM.from_pretrained(input_path, device_map="auto")
+            tokenizer = AutoTokenizer.from_pretrained(input_path)
+
+            target_dtype = torch.float16 if precision == 'f16' else torch.float32
+            model = self._dequantize_weights(model, target_dtype)
+
+            model.save_pretrained(output_path)
+            tokenizer.save_pretrained(output_path)
+
+            self.logger.info(f"Model dequantized and saved to {output_path}")
+            return {"success": True, "message": "Dequantization completed successfully", "output_path": output_path}
+        except Exception as e:
+            self.logger.error(f"Error during model dequantization: {e}")
+            return {"success": False, "error": str(e)}
+        
+    def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
-        # Create a new directory for the merged model
-        merged_dir = os.path.join(self.output_dir, "merged_models")
-        os.makedirs(merged_dir, exist_ok=True)
-        
-        # Parse the original output path
-        original_output_name = os.path.basename(output_path)
-        
-        # If dequantizing, create a separate directory
-        if dequantize != 'no':
-            dequantized_dir = os.path.join(merged_dir, f"dequantized_{dequantize}")
-            os.makedirs(dequantized_dir, exist_ok=True)
-            final_output_path = os.path.join(dequantized_dir, original_output_name)
-        else:
-            final_output_path = os.path.join(merged_dir, original_output_name)
-
-        # Ensure the final output directory exists
-        os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
+        final_output_path = os.path.join(self.merged_dir, output_name)
+        os.makedirs(final_output_path, exist_ok=True)
 
         cli_args = [
-            "python",
-            self.unsloth_script_path,
-            "merge",
+            "python", self.unsloth_script_path, "merge",
             "--base_model_path", base_model_path,
             "--adapter_path", adapter_path,
             "--output_path", final_output_path,
@@ -147,34 +152,26 @@ class UnslothTrainer:
             
             if convert_to_gguf:
                 self.logger.info("Starting GGUF conversion")
-                gguf_result = self.convert_to_gguf(final_output_path, original_output_name)
-                if gguf_result:
-                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output), "merged_path": final_output_path}
+                gguf_result = self.convert_to_gguf(final_output_path, output_name)
+                if gguf_result['success']:
+                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output), "merged_path": final_output_path, "gguf_path": gguf_result['output_file']}
                 else:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
     
-    def convert_to_gguf(self, input_path, output_name=None, outtype="f16"):
+    def convert_to_gguf(self, input_path, output_name):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
-        llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-        convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
+        convert_script = os.path.join(self.llama_cpp_dir, "convert_hf_to_gguf.py")
         
         if not os.path.exists(convert_script):
             self.logger.error(f"Error: convert_hf_to_gguf.py not found at {convert_script}")
-            return False
+            return {"success": False, "error": "GGUF conversion script not found"}
         
-        gguf_dir = os.path.join(self.output_dir, "gguf_models")
-        os.makedirs(gguf_dir, exist_ok=True)
-        
-        if output_name is None:
-            output_name = os.path.basename(input_path)
-        
-        output_file = os.path.join(gguf_dir, f"{output_name}.gguf")
+        output_file = os.path.join(self.gguf_dir, f"{output_name}.gguf")
 
         command = [
-            "python",
-            convert_script,
-            "--outtype", outtype,
+            "python", convert_script,
+            "--outtype", "f16",
             "--outfile", output_file,
             input_path
         ]
@@ -192,6 +189,36 @@ class UnslothTrainer:
             self.logger.error(f"Command error: {e.stderr}")
             return {"success": False, "error": str(e), "details": e.stderr}
         
+    def cleanup(self, keep_latest=5):
+        for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir]:
+            self._cleanup_directory(dir_path, keep_latest)
+
+    def _cleanup_directory(self, directory, keep_latest):
+        items = [os.path.join(directory, d) for d in os.listdir(directory)]
+        items.sort(key=os.path.getmtime, reverse=True)
+
+        for item in items[keep_latest:]:
+            if os.path.isdir(item):
+                shutil.rmtree(item)
+            else:
+                os.remove(item)
+            self.logger.info(f"Removed old item: {item}")
+            
+    def get_models(self):
+        return self._get_directory_contents(self.models_dir)
+
+    def get_adapters(self):
+        return self._get_directory_contents(self.adapters_dir)
+
+    def get_merged_models(self):
+        return self._get_directory_contents(self.merged_dir)
+
+    def get_gguf_models(self):
+        return self._get_directory_contents(self.gguf_dir)
+
+    def _get_directory_contents(self, directory):
+        return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    
     def cleanup_merged_models(self, keep_latest=5):
         merged_dir = os.path.join(self.output_dir, "merged_models")
         if not os.path.exists(merged_dir):
