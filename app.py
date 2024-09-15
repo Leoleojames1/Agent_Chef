@@ -12,6 +12,7 @@ from cutlery.DatasetKitchen import DatasetManager, TemplateManager
 from cutlery.OllamaInterface import OllamaInterface
 from cutlery.FileHandler import FileHandler
 from cutlery.UnslothTrainer import UnslothTrainer
+import subprocess
 
 init(autoreset=True)
 
