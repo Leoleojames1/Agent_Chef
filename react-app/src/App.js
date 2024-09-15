@@ -218,20 +218,18 @@ function App() {
   }, []);
   
   useEffect(() => {
-    if (mergeAdapterModel) {
-      setMergeOutputName(mergeAdapterModel.replace('checkpoint-', ''));
-    }
-  }, [mergeAdapterModel]);
+    const fetchAdapterFiles = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/adapter-files');
+        setAdapterFiles(response.data.adapter_files);
+      } catch (error) {
+        console.error('Error fetching adapter files:', error);
+        setError('Error fetching adapter files');
+      }
+    };
   
-  const fetchAdapterFiles = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/adapter-files');
-      setAdapterFiles(response.data.adapter_files);
-    } catch (error) {
-      console.error('Error fetching adapter files:', error);
-      setError('Error fetching adapter files');
-    }
-  };
+    fetchAdapterFiles();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
