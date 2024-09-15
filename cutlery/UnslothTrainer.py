@@ -12,13 +12,13 @@ class UnslothTrainer:
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.oven_dir = os.path.join(self.output_dir, "oven")
+        self.models_dir = os.path.join(self.oven_dir, "models")
+        self.adapters_dir = os.path.join(self.oven_dir, "adapters")
+        self.merged_dir = os.path.join(self.oven_dir, "merged")
         self.gguf_dir = os.path.join(self.oven_dir, "gguf_models")
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
         self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-
-        os.makedirs(self.gguf_dir, exist_ok=True)
-
 
         for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir]:
             os.makedirs(dir_path, exist_ok=True)
@@ -39,7 +39,7 @@ class UnslothTrainer:
         if numeric_dirs:
             latest_dir = max(numeric_dirs, key=int)
             return os.path.join(model_dir, latest_dir)
-        return None
+        return model_dir  # Return the model_dir if no numeric directories found
     
     def _find_unsloth_script(self):
         script_path = os.path.join(self.cutlery_dir, 'unsloth-cli-2.py')
