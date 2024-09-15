@@ -1,7 +1,6 @@
 import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
 
 def setup_model(base_model_path):
     # Load tokenizer and model for LLaMA 3.1
@@ -16,9 +15,6 @@ def setup_model(base_model_path):
         device_map="auto",
         low_cpu_mem_usage=True
     )
-    
-    # Optionally apply PEFT (if your model uses PEFT fine-tuning)
-    model = PeftModel(model)
 
     return model, tokenizer
 
