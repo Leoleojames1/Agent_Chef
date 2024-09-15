@@ -88,7 +88,7 @@ class UnslothTrainer:
                 self.convert_to_gguf(output_dir, os.path.basename(output_dir))
             return {"message": "Training completed successfully", "output": "\n".join(output)}
 
-    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=False, dequantize='no'):
+    def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
         cli_args = [
@@ -126,8 +126,12 @@ class UnslothTrainer:
         else:
             self.logger.info("Merging completed successfully")
             if convert_to_gguf:
-                self.convert_to_gguf(output_path, os.path.basename(output_path))
-                return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output)}
+                self.logger.info("Starting GGUF conversion")
+                gguf_result = self.convert_to_gguf(output_path, os.path.basename(output_path))
+                if gguf_result:
+                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output)}
+                else:
+                    return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output)}
             return {"message": "Merging completed successfully", "output": "\n".join(output)}
 
     def convert_to_gguf(self, input_path, model_name):
@@ -136,8 +140,8 @@ class UnslothTrainer:
         convert_script = os.path.join(llama_cpp_dir, "convert_hf_to_gguf.py")
         
         if not os.path.exists(convert_script):
-            self.logger.error(f"Error: convert.py not found at {convert_script}")
-            return
+            self.logger.error(f"Error: convert_hf_to_gguf.py not found at {convert_script}")
+            return False
         
         gguf_dir = os.path.join(input_path, "gguf")
         os.makedirs(gguf_dir, exist_ok=True)
@@ -156,6 +160,8 @@ class UnslothTrainer:
         try:
             subprocess.run(command, check=True)
             self.logger.info(f"Conversion to GGUF completed. Output saved in {output_file}")
+            return True
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during GGUF conversion: {e}")
             self.logger.error(f"Command output: {e.output}")
+            return False
