@@ -111,10 +111,22 @@ class UnslothTrainer:
     def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
+        # Construct full paths
         base_model_dir = os.path.join(self.output_dir, base_model_path)
         adapter_dir = os.path.join(self.output_dir, adapter_path)
         
-        latest_checkpoint = self.get_latest_checkpoint(adapter_dir)
+        if not os.path.exists(base_model_dir):
+            raise FileNotFoundError(f"Base model directory not found: {base_model_dir}")
+        
+        if not os.path.exists(adapter_dir):
+            raise FileNotFoundError(f"Adapter directory not found: {adapter_dir}")
+        
+        # Check if the adapter_path is already a checkpoint directory
+        if os.path.basename(adapter_dir).startswith('checkpoint-'):
+            latest_checkpoint = adapter_dir
+        else:
+            latest_checkpoint = self.get_latest_checkpoint(adapter_dir)
+        
         if not latest_checkpoint:
             raise ValueError(f"No checkpoint found in {adapter_dir}")
         
@@ -122,7 +134,7 @@ class UnslothTrainer:
         if not os.path.exists(adapter_model_path):
             raise FileNotFoundError(f"Adapter model not found: {adapter_model_path}")
 
-        final_output_path = os.path.join(self.output_dir, output_name)
+        final_output_path = os.path.join(self.merged_dir, output_name)
         os.makedirs(final_output_path, exist_ok=True)
 
         cli_args = [

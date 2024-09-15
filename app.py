@@ -298,6 +298,45 @@ def save_template():
     except Exception as e:
         return jsonify({'error': f'Failed to save template: {str(e)}'}), 500
     
+@app.route('/api/merge_adapter', methods=['POST'])
+def run_unsloth_merge():
+    data = request.json
+    print(f"{Fore.CYAN}Received Unsloth merge data: {json.dumps(data, indent=2)}{Style.RESET_ALL}")
+    
+    base_model_path = data.get('baseModelPath')
+    adapter_path = data.get('adapterPath')
+    output_name = data.get('outputPath')
+    dequantize = data.get('dequantize', 'no')  # 'no', 'f16', or 'f32'
+
+    try:
+        if not base_model_path or not adapter_path or not output_name:
+            raise ValueError("Base model, adapter model, and output name must be specified")
+
+        unsloth_trainer = UnslothTrainer(base_dir, input_dir, output_dir)
+
+        print(f"{Fore.GREEN}Starting Unsloth merge{Style.RESET_ALL}")
+        result = unsloth_trainer.merge_adapter(
+            base_model_path=base_model_path,
+            adapter_path=adapter_path,
+            output_name=output_name,
+            convert_to_gguf=True,
+            dequantize=dequantize
+        )
+        
+        if 'error' in result:
+            raise Exception(result['error'])
+        
+        return jsonify({
+            'message': 'Unsloth merge completed successfully',
+            'merge_result': result
+        })
+
+    except Exception as e:
+        error_msg = f"Error in Unsloth merge: {str(e)}"
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        logging.exception(error_msg)
+        return jsonify({"error": error_msg}), 500
+    
 @app.route('/api/run', methods=['POST'])
 def run_agent_chef():
     data = request.json
