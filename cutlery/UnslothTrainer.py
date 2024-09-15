@@ -3,6 +3,7 @@ import subprocess
 import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from unsloth import FastLanguageModel
+import shutil
 
 class UnslothTrainer:
     def __init__(self, base_dir, input_dir, output_dir):
@@ -91,6 +92,18 @@ class UnslothTrainer:
     def merge_adapter(self, base_model_path, adapter_path, output_path, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
+        # Create a new directory for the merged model
+        merged_dir = os.path.join(self.output_dir, "merged_models")
+        os.makedirs(merged_dir, exist_ok=True)
+        
+        # If dequantizing, create a separate directory
+        if dequantize != 'no':
+            dequantized_dir = os.path.join(merged_dir, f"dequantized_{dequantize}")
+            os.makedirs(dequantized_dir, exist_ok=True)
+            output_path = os.path.join(dequantized_dir, os.path.basename(output_path))
+        else:
+            output_path = os.path.join(merged_dir, os.path.basename(output_path))
+
         cli_args = [
             "python",
             self.unsloth_script_path,
@@ -130,11 +143,10 @@ class UnslothTrainer:
                 self.logger.info("Starting GGUF conversion")
                 gguf_result = self.convert_to_gguf(output_path, os.path.basename(output_path))
                 if gguf_result:
-                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output)}
+                    return {"message": "Merging completed successfully, and Converted to GGUF", "output": "\n".join(output), "merged_path": output_path}
                 else:
-                    return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output)}
-            return {"message": "Merging completed successfully", "output": "\n".join(output)}
-
+                    return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": output_path}
+            return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": output_path}
     
     def convert_to_gguf(self, input_path, model_name):
         self.logger.info(f"Converting model to GGUF format: {input_path}")
@@ -145,7 +157,7 @@ class UnslothTrainer:
             self.logger.error(f"Error: convert_hf_to_gguf.py not found at {convert_script}")
             return False
         
-        gguf_dir = os.path.join(input_path, "gguf")
+        gguf_dir = os.path.join(self.output_dir, "gguf_models")
         os.makedirs(gguf_dir, exist_ok=True)
         output_file = os.path.join(gguf_dir, f"{model_name}.gguf")
 
@@ -160,10 +172,46 @@ class UnslothTrainer:
         self.logger.info(f"Running command: {' '.join(command)}")
 
         try:
-            subprocess.run(command, check=True)
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
             self.logger.info(f"Conversion to GGUF completed. Output saved in {output_file}")
+            self.logger.info(f"Conversion output: {result.stdout}")
             return True
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during GGUF conversion: {e}")
-            self.logger.error(f"Command output: {e.output}")
+            self.logger.error(f"Command output: {e.stdout}")
+            self.logger.error(f"Command error: {e.stderr}")
             return False
+        
+    def cleanup_merged_models(self, keep_latest=5):
+        merged_dir = os.path.join(self.output_dir, "merged_models")
+        if not os.path.exists(merged_dir):
+            return
+
+        # List all subdirectories in the merged_models directory
+        subdirs = [d for d in os.listdir(merged_dir) if os.path.isdir(os.path.join(merged_dir, d))]
+        
+        # Sort subdirectories by modification time (newest first)
+        subdirs.sort(key=lambda x: os.path.getmtime(os.path.join(merged_dir, x)), reverse=True)
+
+        # Keep the latest 'keep_latest' directories and remove the rest
+        for subdir in subdirs[keep_latest:]:
+            dir_to_remove = os.path.join(merged_dir, subdir)
+            self.logger.info(f"Removing old merged model: {dir_to_remove}")
+            shutil.rmtree(dir_to_remove)
+
+    def cleanup_gguf_models(self, keep_latest=5):
+        gguf_dir = os.path.join(self.output_dir, "gguf_models")
+        if not os.path.exists(gguf_dir):
+            return
+
+        # List all GGUF files in the gguf_models directory
+        gguf_files = [f for f in os.listdir(gguf_dir) if f.endswith('.gguf')]
+        
+        # Sort GGUF files by modification time (newest first)
+        gguf_files.sort(key=lambda x: os.path.getmtime(os.path.join(gguf_dir, x)), reverse=True)
+
+        # Keep the latest 'keep_latest' files and remove the rest
+        for gguf_file in gguf_files[keep_latest:]:
+            file_to_remove = os.path.join(gguf_dir, gguf_file)
+            self.logger.info(f"Removing old GGUF model: {file_to_remove}")
+            os.remove(file_to_remove)
