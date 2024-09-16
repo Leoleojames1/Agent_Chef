@@ -130,7 +130,7 @@ class UnslothTrainer:
         self.logger.info(f"Base model found at: {base_model_dir}")
         
         # Construct full path for adapter
-        adapter_dir = os.path.join(self.output_dir, "adapters", adapter_path)
+        adapter_dir = os.path.join(self.output_dir, adapter_path)
         
         if not os.path.exists(adapter_dir):
             raise FileNotFoundError(f"Adapter directory not found: {adapter_dir}")
