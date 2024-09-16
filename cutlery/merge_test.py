@@ -70,9 +70,9 @@ def convert_to_gguf(input_path, output_file):
         print(e.output)
 
 if __name__ == "__main__":
-    base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/Meta-Llama-3.1-8B-Instruct-abliterated"
-    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/checkpoint-900"
-    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/Meta-Llama-3.1-8B-Instruct-bnb-4bit_OARC_Commander_v001/900"
+    base_model_path = "/home/borch/Agent_Chef/agent_chef_data/huggingface_models/llama-3-8b-Instruct-bnb-4bit"
+    adapter_path = "/home/borch/Agent_Chef/agent_chef_data/oven/adapters/OARC_Commander_v001_LoRA_unsloama3_4bit/checkpoint-900"
+    output_path = "/home/borch/Agent_Chef/agent_chef_data/oven/adapters/OARC_Commander_v001_LoRA_unsloama3_4bit/900"
     
     # Create gguf folder
     oven_dir = os.path.dirname(output_path)
