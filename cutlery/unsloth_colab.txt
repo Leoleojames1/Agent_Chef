@@ -6,7 +6,7 @@ import torch
 
 # Initialize the API and set your Hugging Face token
 hf_api = HfApi()
-token = "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"  # Replace with your actual token
+token = ""  # Replace with your actual token
 
 # Define model, LoRA, and tokenizer paths
 base_model_name = "unsloth/llama-3-8b-Instruct-bnb-4bit"
