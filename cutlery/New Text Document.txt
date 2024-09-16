@@ -1,0 +1,79 @@
+from transformers import AutoTokenizer
+from huggingface_hub import HfApi, HfFolder
+from unsloth import FastLanguageModel
+import os
+import torch
+
+# Initialize the API and set your Hugging Face token
+hf_api = HfApi()
+token = "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"  # Replace with your actual token
+
+# Define model, LoRA, and tokenizer paths
+base_model_name = "unsloth/llama-3-8b-Instruct-bnb-4bit"
+lora_output_dir = "Borcherding/OARC_Commander_v001_llama3_8b_4bit_LoRA"
+merged_model_output_dir = "Borcherding/OARC_Commander_v001_llama3_8b_4bit_merged"
+
+# Load the base model and tokenizer
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=base_model_name,
+    max_seq_length=2048,  # Adjust as needed
+    dtype=torch.float16,
+    load_in_4bit=True,
+)
+
+# Load and merge LoRA adapter
+lora_model, _ = FastLanguageModel.from_pretrained(
+    model_name=base_model_name,
+    adapter_name=lora_output_dir,
+    max_seq_length=2048,  # Adjust as needed
+    dtype=torch.float16,
+    load_in_4bit=True,
+)
+
+# Merge LoRA with base model
+merged_model = lora_model.merge_and_unload()
+
+# Save the merged model
+os.makedirs(merged_model_output_dir, exist_ok=True)
+merged_model.save_pretrained(merged_model_output_dir)
+tokenizer.save_pretrained(merged_model_output_dir)
+
+def push_to_hub(folder_path, repo_id, token):
+    try:
+        hf_api.upload_folder(
+            folder_path=folder_path,
+            path_in_repo="",
+            repo_id=repo_id,
+            token=token
+        )
+        print(f"Successfully pushed {repo_id} to Hugging Face Hub.")
+    except Exception as e:
+        print(f"Failed to push {repo_id} to Hugging Face Hub: {e}")
+
+# Push the merged model to a separate repository
+push_to_hub(merged_model_output_dir, merged_model_output_dir, token)
+
+# Push the merged model in GGUF format
+try:
+    merged_model.push_to_hub_gguf(
+        merged_model_output_dir,
+        tokenizer,
+        quantization_method=["q4_k_m", "q8_0", "q5_k_m"],
+        token=token,
+    )
+    print("Successfully pushed GGUF models to Hugging Face Hub.")
+except Exception as e:
+    print(f"Failed to push GGUF models to Hugging Face Hub: {e}")
+
+# Verify that everything is uploaded correctly by loading from the hub
+try:
+    loaded_model, loaded_tokenizer = FastLanguageModel.from_pretrained(
+        merged_model_output_dir,
+        max_seq_length=2048,  # Adjust as needed
+        dtype=torch.float16,
+        load_in_4bit=True,
+        use_auth_token=token
+    )
+    print("Model successfully loaded from Hugging Face Hub!")
+except Exception as e:
+    print(f"Failed to load model from Hugging Face Hub: {e}")

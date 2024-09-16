@@ -149,7 +149,7 @@ class UnslothTrainer:
             raise FileNotFoundError(f"Adapter model not found: {adapter_model_path}")
 
         final_output_path = os.path.join(self.merged_dir, output_name)
-        os.makedirs(final_output_path, exist_exist=True)
+        os.makedirs(final_output_path, exist_ok=True)
 
         cli_args = [
             "python", self.unsloth_script_path, "merge",
@@ -192,7 +192,7 @@ class UnslothTrainer:
                 else:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
-    
+        
     def dequantize_model(self, input_path, output_path, precision):
         self.logger.info(f"Dequantizing model from {input_path} to {output_path}")
         
