@@ -21,14 +21,12 @@ def convert_safetensor_to_gguf(input_file, output_file):
     except subprocess.CalledProcessError as e:
         print(f"Conversion failed for {input_file}: {e}")
 
-def main():
-    parser = argparse.ArgumentParser(description="Convert SafeTensor models to GGUF format")
-    parser.add_argument("--input_dir", type=str, default="safetensors", help="Directory containing SafeTensor files")
-    parser.add_argument("--output_dir", type=str, default="gguf", help="Directory to save GGUF files")
-    args = parser.parse_args()
-
-    input_dir = Path(args.input_dir)
-    output_dir = Path(args.output_dir)
+def process_directory(input_dir, output_dir):
+    """
+    Process all .safetensors files in the input directory and convert them to GGUF format.
+    """
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -37,6 +35,14 @@ def main():
     for safetensor_file in input_dir.glob("*.safetensors"):
         gguf_file = output_dir / (safetensor_file.stem + ".gguf")
         convert_safetensor_to_gguf(str(safetensor_file), str(gguf_file))
+
+def main():
+    parser = argparse.ArgumentParser(description="Convert SafeTensor models to GGUF format")
+    parser.add_argument("--input_dir", type=str, default="safetensors", help="Directory containing SafeTensor files")
+    parser.add_argument("--output_dir", type=str, default="gguf", help="Directory to save GGUF files")
+    args = parser.parse_args()
+
+    process_directory(args.input_dir, args.output_dir)
 
 if __name__ == "__main__":
     main()
