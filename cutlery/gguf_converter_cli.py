@@ -36,13 +36,32 @@ def process_directory(input_dir, output_dir):
         gguf_file = output_dir / (safetensor_file.stem + ".gguf")
         convert_safetensor_to_gguf(str(safetensor_file), str(gguf_file))
 
+def get_user_input():
+    """
+    Get input and output directories from user input.
+    """
+    input_dir = input("Enter the directory containing SafeTensor files (default: safetensors): ").strip() or "safetensors"
+    output_dir = input("Enter the directory to save GGUF files (default: gguf): ").strip() or "gguf"
+    return input_dir, output_dir
+
 def main():
     parser = argparse.ArgumentParser(description="Convert SafeTensor models to GGUF format")
-    parser.add_argument("--input_dir", type=str, default="safetensors", help="Directory containing SafeTensor files")
-    parser.add_argument("--output_dir", type=str, default="gguf", help="Directory to save GGUF files")
+    parser.add_argument("--input_dir", type=str, help="Directory containing SafeTensor files")
+    parser.add_argument("--output_dir", type=str, help="Directory to save GGUF files")
     args = parser.parse_args()
 
-    process_directory(args.input_dir, args.output_dir)
+    if args.input_dir and args.output_dir:
+        # Use command-line arguments if provided
+        input_dir = args.input_dir
+        output_dir = args.output_dir
+    else:
+        # If no arguments are provided, use interactive mode
+        input_dir, output_dir = get_user_input()
+
+    print(f"Input directory: {input_dir}")
+    print(f"Output directory: {output_dir}")
+    
+    process_directory(input_dir, output_dir)
 
 if __name__ == "__main__":
     main()
