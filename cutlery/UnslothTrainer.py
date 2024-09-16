@@ -5,20 +5,20 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import shutil
 
 class UnslothTrainer:
-    def __init__(self, base_dir, input_dir, output_dir):
+    def __init__(self, base_dir, input_dir, oven_dir):
         self.project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         self.cutlery_dir = os.path.join(self.project_dir, 'cutlery')
         self.base_dir = base_dir
         self.input_dir = input_dir
-        self.output_dir = output_dir
-        self.models_dir = os.path.join(self.output_dir, "models")
-        self.adapters_dir = os.path.join(self.output_dir, "adapters")
-        self.merged_dir = os.path.join(self.output_dir, "merged")
-        self.gguf_dir = os.path.join(self.output_dir, "gguf_models")
+        self.oven_dir = oven_dir  # This should be the "oven" directory
+        self.models_dir = os.path.join(self.oven_dir, "models")
+        self.adapters_dir = os.path.join(self.oven_dir, "adapters")
+        self.merged_dir = os.path.join(self.oven_dir, "merged")
+        self.gguf_dir = os.path.join(self.oven_dir, "gguf_models")
         self.logger = logging.getLogger(__name__)
         self.unsloth_script_path = self._find_unsloth_script()
         self.llama_cpp_dir = os.path.expanduser("~/llama.cpp")
-        self.dequantized_dir = os.path.join(self.output_dir, "dequantized_models")
+        self.dequantized_dir = os.path.join(self.oven_dir, "dequantized_models")
 
         for dir_path in [self.models_dir, self.adapters_dir, self.merged_dir, self.gguf_dir, self.dequantized_dir]:
             os.makedirs(dir_path, exist_ok=True)
@@ -107,14 +107,14 @@ class UnslothTrainer:
             if os.path.exists(adapter_path):
                 shutil.move(adapter_path, os.path.join(self.adapters_dir, f"{output_name}_adapter.bin"))
             return {"message": "Training completed successfully", "output": "\n".join(output), "model_path": adapters_dir}
-        
+
     def merge_adapter(self, base_model_path, adapter_path, output_name, convert_to_gguf=True, dequantize='no'):
         self.logger.info(f"Merging adapter from {adapter_path} into base model {base_model_path}")
         
         # Possible directories where the base model might be located
         possible_base_dirs = [
             os.path.join(self.base_dir, "huggingface_models"),
-            os.path.join(self.base_dir, "oven"),
+            self.oven_dir,
         ]
         
         base_model_dir = None
@@ -130,7 +130,7 @@ class UnslothTrainer:
         self.logger.info(f"Base model found at: {base_model_dir}")
         
         # Construct full path for adapter
-        adapter_dir = os.path.join(self.output_dir, adapter_path)
+        adapter_dir = os.path.join(self.adapters_dir, adapter_path)
         
         if not os.path.exists(adapter_dir):
             raise FileNotFoundError(f"Adapter directory not found: {adapter_dir}")
@@ -192,7 +192,7 @@ class UnslothTrainer:
                 else:
                     return {"message": "Merging completed successfully, but GGUF conversion failed", "output": "\n".join(output), "merged_path": final_output_path}
             return {"message": "Merging completed successfully", "output": "\n".join(output), "merged_path": final_output_path}
-        
+
     def dequantize_model(self, input_path, output_path, precision):
         self.logger.info(f"Dequantizing model from {input_path} to {output_path}")
         
