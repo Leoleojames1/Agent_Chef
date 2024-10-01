@@ -1,0 +1,9 @@
+[
+  {
+    "task":"Desired Model Task",
+    "instruction":"Compiled Model Instruction",
+    "input":"Requested User Input",
+    "output":"Calculated Model Output",
+    "command":"Referenced Ground Truth Data"
+  }
+]

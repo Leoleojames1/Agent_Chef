@@ -5,19 +5,18 @@ import numpy as np
 from colorama import Fore, Style, init
 import os, json, urllib.parse, tarfile, gzip, shutil, requests, random, re, time, logging, glob
 from typing import List, Dict, Any, Optional
+import logging
 
-# Import document loaders (assuming they're in a separate file)
 # from langchain.document_loaders import (
 #     WebBaseLoader, PyPDFLoader, TextLoader, Docx2txtLoader,
 #     UnstructuredPowerPointLoader, WikipediaLoader, ArxivLoader,
 #     UnstructuredEPubLoader, JSONLoader, CSVLoader
 # )
 
-# Import external APIs (assuming they're in separate files)
 # from huggingface_hub import snapshot_download, HfApi, hf_hub_download
 # from github import Github
 # from datasets import load_dataset
-init(autoreset=True)
+# init(autoreset=True)
 
 #TODO allow arxiv & hugging face links in ui for digestion and dataset construction
 
@@ -300,6 +299,7 @@ class DatasetManager:
         self.logger = logging.getLogger(__name__)
         self.input_dir = input_dir
         self.output_dir = output_dir
+        self.file_handler = FileHandler(input_dir, output_dir)  # Add this line
         self.enhanced_generator = EnhancedDatasetGenerator(ollama_interface, template_manager)
 
     def parquet_to_txt(self, parquet_file):
@@ -436,13 +436,11 @@ class DatasetManager:
     def generate_synthetic_data(self, seed_file, sample_rate, paraphrases_per_sample, column_types, use_all_samples=True, custom_prompts={}, **kwargs):
         try:
             seed_file_path = os.path.join(self.input_dir, seed_file)
-            logging.info(f"Looking for seed file at: {seed_file_path}")
-            logging.info(f"Column types: {column_types}")
-            
             if not os.path.exists(seed_file_path):
                 raise FileNotFoundError(f"Seed file not found: {seed_file_path}")
             
             seed_data = pd.read_parquet(seed_file_path)
+            
             num_samples = len(seed_data) if use_all_samples else int(len(seed_data) * (sample_rate / 100))
             
             samples_to_use = seed_data if use_all_samples else seed_data.sample(n=num_samples, replace=False)
@@ -656,6 +654,229 @@ class DatasetManager:
 
         return response['message']['content']
     
+    def build_parquet(self, data, output_file, schema=None):
+        """
+        Build a Parquet file from the given data.
+        
+        :param data: DataFrame or dictionary of data to save as Parquet
+        :param output_file: Path to save the Parquet file
+        :param schema: Optional PyArrow schema to use
+        """
+        if isinstance(data, pd.DataFrame):
+            if schema:
+                table = pa.Table.from_pandas(data, schema=schema)
+                pq.write_table(table, output_file)
+            else:
+                data.to_parquet(output_file, engine='pyarrow')
+        elif isinstance(data, dict):
+            df = pd.DataFrame(data)
+            if schema:
+                table = pa.Table.from_pandas(df, schema=schema)
+                pq.write_table(table, output_file)
+            else:
+                df.to_parquet(output_file, engine='pyarrow')
+        else:
+            raise ValueError("Data must be a pandas DataFrame or a dictionary")
+        
+        print(f"Parquet file saved to: {output_file}")
+
+    def parquet_to_csv(self, parquet_file, csv_file):
+        """
+        Convert a Parquet file to CSV format.
+        
+        :param parquet_file: Path to the input Parquet file
+        :param csv_file: Path to save the output CSV file
+        """
+        df = pd.read_parquet(parquet_file)
+        df.to_csv(csv_file, index=False)
+        print(f"CSV file saved to: {csv_file}")
+
+    def parquet_to_jsonl(self, parquet_file, jsonl_file):
+        """
+        Convert a Parquet file to JSONL format.
+        
+        :param parquet_file: Path to the input Parquet file
+        :param jsonl_file: Path to save the output JSONL file
+        """
+        df = pd.read_parquet(parquet_file)
+        df.to_json(jsonl_file, orient='records', lines=True)
+        print(f"JSONL file saved to: {jsonl_file}")
+
+    def convert_parquet(self, parquet_file, output_formats=['csv', 'jsonl']):
+        """
+        Convert a Parquet file to specified formats.
+        
+        :param parquet_file: Path to the input Parquet file
+        :param output_formats: List of formats to convert to ('csv', 'jsonl', or both)
+        """
+        base_name = os.path.splitext(parquet_file)[0]
+        
+        if 'csv' in output_formats:
+            csv_file = f"{base_name}.csv"
+            self.parquet_to_csv(parquet_file, csv_file)
+        
+        if 'jsonl' in output_formats:
+            jsonl_file = f"{base_name}.jsonl"
+            self.parquet_to_jsonl(parquet_file, jsonl_file)
+
+    def txt_to_multi_turn_parquet(self, txt_file, output_file, template_name):
+        """
+        Convert a formatted txt file to a multi-turn parquet file based on the template.
+        
+        :param txt_file: Path to the input txt file
+        :param output_file: Path to save the output parquet file
+        :param template_name: Name of the template to use for parsing
+        """
+        template = self.template_manager.get_template(template_name)
+        if not template:
+            raise ValueError(f"Template '{template_name}' not found")
+
+        with open(txt_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        pattern = re.compile(r'\$\("((?:(?!\$\(").|\n)*?)"\)', re.DOTALL)
+        matches = pattern.findall(content)
+
+        data = []
+        num_fields = len(template)
+        
+        for i in range(0, len(matches), num_fields):
+            turn = {}
+            for j, field in enumerate(template):
+                if i + j < len(matches):
+                    turn[field] = matches[i + j]
+                else:
+                    turn[field] = ""  # Handle cases where there might be missing fields
+            data.append(turn)
+
+        # For multi-turn formats like "duo_swarm", we need to structure the data differently
+        if template_name == "duo_swarm":
+            structured_data = []
+            for i in range(0, len(data), 2):
+                if i + 1 < len(data):
+                    structured_turn = {
+                        "agent_one": {
+                            "instruction": data[i]["agent_instruct_one"],
+                            "input": data[i]["input"],
+                            "output": data[i]["output"]
+                        },
+                        "agent_two": {
+                            "instruction": data[i+1]["agent_instruct_two"],
+                            "input": data[i+1]["input"],
+                            "output": data[i+1]["output"]
+                        }
+                    }
+                    structured_data.append(structured_turn)
+            data = structured_data
+
+        df = pd.DataFrame(data)
+        df.to_parquet(output_file, engine='pyarrow')
+        print(f"Multi-turn parquet file saved to: {output_file}")
+
+    def parse_text_to_parquet(self, text_content, template_name, filename):
+        template = self.template_manager.get_template(template_name)
+        if not template:
+            raise ValueError(f"Template '{template_name}' not found")
+
+        self.logger.info(f"Parsing text content using template: {template_name}")
+        
+        # Save the original text content to a txt file
+        txt_file = os.path.join(self.input_dir, f"{filename}.txt")
+        with open(txt_file, 'w', encoding='utf-8') as f:
+            f.write(text_content)
+        self.logger.info(f"Saved original text content to {txt_file}")
+
+        # Parse the content using manual formatting
+        parsed_data = self.parse_manual_formatting(text_content, template)
+
+        # Create DataFrame from parsed data
+        df = pd.DataFrame(parsed_data)
+        self.logger.info(f"Created DataFrame with shape: {df.shape}")
+
+        # Save as JSON
+        json_file = os.path.join(self.input_dir, f"{filename}.json")
+        df.to_json(json_file, orient='records', indent=2)
+        self.logger.info(f"Saved JSON file: {json_file}")
+
+        # Save as multi-turn Parquet
+        parquet_file = os.path.join(self.input_dir, f"{filename}.parquet")
+        self.txt_to_multi_turn_parquet(txt_file, parquet_file, template_name)
+        self.logger.info(f"Saved multi-turn Parquet file: {parquet_file}")
+
+        return df, json_file, parquet_file
+
+    def convert_parquet(self, parquet_file, output_formats=['csv', 'jsonl']):
+        """
+        Convert a multi-turn parquet file to specified formats.
+        
+        :param parquet_file: Path to the input multi-turn parquet file
+        :param output_formats: List of formats to convert to ('csv', 'jsonl', or both)
+        """
+        df = pd.read_parquet(parquet_file)
+        base_name = os.path.splitext(parquet_file)[0]
+        
+        if 'csv' in output_formats:
+            csv_file = f"{base_name}.csv"
+            df.to_csv(csv_file, index=False)
+            print(f"CSV file saved to: {csv_file}")
+        
+        if 'jsonl' in output_formats:
+            jsonl_file = f"{base_name}.jsonl"
+            df.to_json(jsonl_file, orient='records', lines=True)
+            print(f"JSONL file saved to: {jsonl_file}")
+
+class FileHandler:
+    def __init__(self, input_dir, output_dir):
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+        logging.basicConfig(level=logging.INFO)
+
+    def save_to_parquet(self, dataset, filename='dataset.parquet'):
+        file_path = os.path.join(self.output_dir, filename)
+        dataset.to_parquet(file_path, engine='pyarrow')
+        logging.info(f"Saved dataset to Parquet: {file_path}")
+        return file_path
+
+    def load_parquet(self, filename):
+        file_path = os.path.join(self.input_dir, filename)
+        if os.path.exists(file_path):
+            return pd.read_parquet(file_path)
+        else:
+            logging.error(f"Parquet file {filename} not found in the input directory.")
+            return None
+
+    def load_seed_data(self, seed_file):
+        if seed_file and os.path.exists(os.path.join(self.input_dir, seed_file)):
+            return pd.read_parquet(os.path.join(self.input_dir, seed_file))
+        else:
+            logging.error(f"Seed file {seed_file} not found in the ingredients directory.")
+            return None
+
+    def save_to_json(self, df, filename):
+        json_file = os.path.join(self.input_dir, f"{filename}.json")
+        df.to_json(json_file, orient='records', indent=2)
+        return json_file
+
+    def save_text_content(self, filename, content):
+        txt_file = os.path.join(self.input_dir, f"{filename}.txt")
+        with open(txt_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return txt_file
+
+    def convert_json_to_parquet(self, json_file):
+        json_path = os.path.join(self.input_dir, json_file)
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)
+            parquet_file = os.path.join(self.output_dir, f"{os.path.splitext(json_file)[0]}.parquet")
+            df.to_parquet(parquet_file, engine='pyarrow')
+            logging.info(f"Converted JSON to Parquet: {parquet_file}")
+            return parquet_file
+        else:
+            logging.error(f"JSON file {json_file} not found in the input directory.")
+            return None
+        
 class TemplateManager:
     def __init__(self, input_dir):
         self.input_dir = input_dir

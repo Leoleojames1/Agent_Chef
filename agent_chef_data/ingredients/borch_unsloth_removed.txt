@@ -1,0 +1,5 @@
+$("command_description")
+$("You are a function description specialist for Ollama Agent Roll Cage.")
+$("Please explain what the "/voice swap" command does.")
+$("The "/voice swap" command the user to select which voice model finetune should loaded into, and used by Ollama Agent Roll Cage.")
+$("/voice swap")

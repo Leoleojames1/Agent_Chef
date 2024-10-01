@@ -1,0 +1,5 @@
+$("Desired Model Task")
+$("Compiled Model Instruction")
+$("Requested User Input")
+$("Calculated Model Output")
+$("Referenced Ground Truth Data")
