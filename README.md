@@ -139,16 +139,6 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
 
 ## Agent Chef Installation Guide
 
-### Prerequisites:
-
-#### Windows Users:
-1. Install Windows Subsystem for Linux (WSL):
-   * Follow the official Microsoft guide to install WSL: https://learn.microsoft.com/en-us/windows/wsl/install
-   * After installation, open a WSL terminal for the next steps.
-
-#### Linux Users:
-* Skip the WSL installation step.
-
 ### Installation Steps:
 
 1. Install Miniconda:
@@ -162,7 +152,7 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
    rm ~/miniconda3/miniconda.sh
    ```
 
-   Add Miniconda to your PATH:
+   Add Miniconda to your PATH, either in windows env var, or linux PATH env var with the following command:
 
    ```bash
    echo 'export PATH="$HOME/miniconda3/bin:$PATH"' >> ~/.bashrc
@@ -177,7 +167,7 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
    conda activate AgentChef
    ```
 
-3. Clone the Repository INTO HOME FOLDER:
+3. Clone the Repository INTO HOME FOLDER, or your desired dir on windows:
 
    ```bash
    cd ~
