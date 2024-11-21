@@ -12,7 +12,7 @@
 🍲Agent Chef is a powerful tool designed for dataset refinement, structuring, and generation. It empowers users to create high-quality, domain-specific datasets for fine-tuning AI models.🥘
 
 <p align="center">
-  <img src="docs/icons/agent_chef_poster.jpeg" alt="OARC LOGO" width="250"/>
+  <img src="docs/icons/agent_chef_poster.jpeg" alt="OARC LOGO" width="500"/>
 </p>
 
 ## Features
