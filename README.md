@@ -200,7 +200,6 @@ Agent Chef aims to revolutionize home-brewed AI by providing tools and framework
    ```bash
    cd react-app
    npm cache clean --force
-   rm -rf node_modules package-lock.json
    npm install
    cd ..
    ```
