@@ -136,7 +136,12 @@ src="docs/test_ui/OARC_commander_synth.png"
   style="display: inline-block; margin: 0 auto; max-width: 50px">
 
 now that you have generated a training dataset, you must generate a sufficiently varied evaluation datasets, for my example I changed the dataset augmenter to say "Hey whats up.. " before every response, ultimately your eval set cannot match your train set, then once you have train and eval sets you must build a test set, utilizing the splice feature you can take and existing dataset, and splice out the output column to create a test set. Once you have these 3 sets you are ready to train a LORA adapter with unsloth that you will be able to merge into the base model.
-  
+
+Future versions of Agent Chef will be adding webscrapping agents, arxiv paper agents, github clone agents, search api agents, mongodb storage, template dataset referencing, reasoning dataset references, more robust hugging face dataset pull push features, and also battle arena style agent conversation dataset generation similar to the ideas presented in the microsoft reasearch paper "Arena Learning":
+
+https://www.microsoft.com/en-us/research/uploads/prod/2024/07/WizardLM_ArenaLearning.pdf
+https://huggingface.co/blog/mlabonne/agentic-datagen
+
 ## Why Agent Chef?
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
