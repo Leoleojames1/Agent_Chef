@@ -142,6 +142,12 @@ Future versions of Agent Chef will be adding webscrapping agents, arxiv paper ag
 https://www.microsoft.com/en-us/research/uploads/prod/2024/07/WizardLM_ArenaLearning.pdf
 https://huggingface.co/blog/mlabonne/agentic-datagen
 
+also the next series of datasets, which you can employ currently by correctly formmating the thingking tags are based on the Open01-SFT dataset, and the Open-o1 paper, you can reference my demo LaTeX Mathetmatics to python numpy dataset of hf:
+
+https://arxiv.org/pdf/2412.14135
+https://huggingface.co/datasets/O1-OPEN/OpenO1-SFT
+https://huggingface.co/datasets/Borcherding/pythonLaTexFusion-x2
+
 ## Why Agent Chef?
 
 Agent Chef aims to revolutionize home-brewed AI by providing tools and frameworks that enable users to create high-quality, domain-specific datasets. Whether you're looking to improve an existing dataset or generate new data from scratch, Agent Chef has you covered.
